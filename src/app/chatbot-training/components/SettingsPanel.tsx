@@ -2,13 +2,18 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { ChevronRight, ChevronDown, Plus, Clock, Trash2, X, Database, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Clock, Trash2, X, Database, Sparkles, MessageSquare } from 'lucide-react';
 import { TrainingStats, TrainingCategory } from '@/types';
 import {
   createTrainingCategory,
   deleteTrainingCategory,
   createTrainingPhrase,
 } from '@/lib/api';
+
+export interface IdleMessage {
+  delay: number; // seconds
+  message: string;
+}
 
 interface Props {
   model: string;
@@ -27,6 +32,11 @@ interface Props {
   onOpenKnowledge?: () => void;
   phrases?: any[];
   faqs?: any[];
+  // Idle messages settings
+  idleEnabled?: boolean;
+  onIdleEnabledChange?: (v: boolean) => void;
+  idleMessages?: IdleMessage[];
+  onIdleMessagesChange?: (v: IdleMessage[]) => void;
 }
 
 // Toggle Switch Component
@@ -53,6 +63,7 @@ export default function SettingsPanel({
   model, onModelChange, debugMode, onDebugChange, segments, onSegmentsChange,
   openingQuestions, onOpeningQuestionsChange, autoSuggest, onAutoSuggestChange,
   stats, categories, onRefresh, onOpenKnowledge, phrases = [], faqs = [],
+  idleEnabled = true, onIdleEnabledChange, idleMessages = [], onIdleMessagesChange,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     knowledge: true,
@@ -62,6 +73,7 @@ export default function SettingsPanel({
     segments: true,
     addKnowledge: false,
     addPhrase: false,
+    idleMessages: true,
   });
 
   const [newCategory, setNewCategory] = useState('');
@@ -352,6 +364,101 @@ export default function SettingsPanel({
               style={{ background: 'var(--accent)', color: 'white' }}
             >
               Thêm mẫu câu
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tin nhắn tự động khi khách im lặng */}
+      <div style={sectionStyle}>
+        <button 
+          onClick={() => toggle('idleMessages')} 
+          className="w-full flex items-center justify-between px-4 py-3 transition hover:bg-[var(--bg-hover)]"
+        >
+          <div className="flex items-center gap-2">
+            {expanded.idleMessages ? (
+              <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            ) : (
+              <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            )}
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Nhắc khi im lặng</span>
+          </div>
+          <Toggle checked={idleEnabled} onChange={(v) => onIdleEnabledChange?.(v)} />
+        </button>
+        {expanded.idleMessages && idleEnabled && (
+          <div className="px-4 pb-4 space-y-3">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Tự động gửi tin nhắn khi khách không trả lời sau một khoảng thời gian
+            </p>
+            
+            {idleMessages.map((item, idx) => (
+              <div 
+                key={idx} 
+                className="p-3 rounded-lg space-y-2"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                      Tin nhắn {idx + 1}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newMessages = idleMessages.filter((_, i) => i !== idx);
+                      onIdleMessagesChange?.(newMessages);
+                    }}
+                    className="p-1 transition hover:text-red-400"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Sau</span>
+                  <input
+                    type="number"
+                    value={item.delay}
+                    onChange={(e) => {
+                      const newMessages = [...idleMessages];
+                      newMessages[idx] = { ...item, delay: parseInt(e.target.value) || 30 };
+                      onIdleMessagesChange?.(newMessages);
+                    }}
+                    className="w-16 px-2 py-1 rounded text-xs text-center outline-none"
+                    style={inputStyle}
+                    min={10}
+                    max={600}
+                  />
+                  <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>giây</span>
+                </div>
+                
+                <textarea
+                  value={item.message}
+                  onChange={(e) => {
+                    const newMessages = [...idleMessages];
+                    newMessages[idx] = { ...item, message: e.target.value };
+                    onIdleMessagesChange?.(newMessages);
+                  }}
+                  placeholder="Nội dung tin nhắn..."
+                  className="w-full px-2.5 py-2 rounded-lg text-xs outline-none resize-none"
+                  style={inputStyle}
+                  rows={3}
+                />
+              </div>
+            ))}
+            
+            <button
+              onClick={() => {
+                const lastDelay = idleMessages.length > 0 ? idleMessages[idleMessages.length - 1].delay + 30 : 30;
+                onIdleMessagesChange?.([...idleMessages, { delay: lastDelay, message: '' }]);
+              }}
+              className="flex items-center gap-1.5 text-xs font-medium"
+              style={{ color: 'var(--accent)' }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Thêm tin nhắn
             </button>
           </div>
         )}

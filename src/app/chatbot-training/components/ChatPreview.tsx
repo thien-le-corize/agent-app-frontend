@@ -61,13 +61,40 @@ interface ChatMessage {
   content: string;
 }
 
+export interface IdleMessageConfig {
+  delay: number; // seconds
+  message: string;
+}
+
 interface Props {
   promptContent: string;
   model: string;
   autoSuggest?: boolean;
+  idleEnabled?: boolean;
+  idleMessages?: IdleMessageConfig[];
 }
 
-export default function ChatPreview({ promptContent, model, autoSuggest = false }: Props) {
+// Default idle messages
+const DEFAULT_IDLE_MESSAGES: IdleMessageConfig[] = [
+  {
+    delay: 30,
+    message: "😊 Anh/chị ơi, em thấy mình đang tìm hiểu về dịch vụ nha khoa. Hiện tại bên em đang có **ưu đãi giảm 20%** cho khách hàng mới đặt lịch trong tuần này. Anh/chị có muốn em tư vấn thêm không ạ?"
+  },
+  {
+    delay: 60,
+    message: "🎁 Ngoài ra, nếu anh/chị đặt lịch hẹn ngay hôm nay, bên em sẽ **tặng thêm gói kiểm tra răng miệng miễn phí** (trị giá 500.000đ). Anh/chị có muốn em hỗ trợ đặt lịch không ạ?"
+  },
+  {
+    delay: 90,
+    message: "📅 Em có thể giúp anh/chị đặt lịch hẹn ngay bây giờ. Anh/chị cho em xin:\n- Họ tên\n- Số điện thoại\n- Thời gian mong muốn\n\nĐội ngũ bác sĩ sẽ liên hệ xác nhận ngay ạ! 🦷"
+  },
+  {
+    delay: 120,
+    message: "💬 Anh/chị có thắc mắc gì về dịch vụ hay bảng giá không ạ? Em sẵn sàng hỗ trợ 24/7. Hoặc anh/chị có thể để lại số điện thoại để bác sĩ tư vấn trực tiếp nhé!"
+  }
+];
+
+export default function ChatPreview({ promptContent, model, autoSuggest = false, idleEnabled = true, idleMessages }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,25 +105,8 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false 
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const idleCountRef = useRef(0);
 
-  // Các tin nhắn tự động khi khách im lặng
-  const IDLE_MESSAGES = [
-    {
-      delay: 30000, // 30 giây
-      message: "😊 Anh/chị ơi, em thấy mình đang tìm hiểu về dịch vụ nha khoa. Hiện tại bên em đang có **ưu đãi giảm 20%** cho khách hàng mới đặt lịch trong tuần này. Anh/chị có muốn em tư vấn thêm không ạ?"
-    },
-    {
-      delay: 60000, // 1 phút sau tin đầu
-      message: "🎁 Ngoài ra, nếu anh/chị đặt lịch hẹn ngay hôm nay, bên em sẽ **tặng thêm gói kiểm tra răng miệng miễn phí** (trị giá 500.000đ). Anh/chị có muốn em hỗ trợ đặt lịch không ạ?"
-    },
-    {
-      delay: 90000, // 1.5 phút sau
-      message: "📅 Em có thể giúp anh/chị đặt lịch hẹn ngay bây giờ. Anh/chị cho em xin:\n- Họ tên\n- Số điện thoại\n- Thời gian mong muốn\n\nĐội ngũ bác sĩ sẽ liên hệ xác nhận ngay ạ! 🦷"
-    },
-    {
-      delay: 120000, // 2 phút sau
-      message: "💬 Anh/chị có thắc mắc gì về dịch vụ hay bảng giá không ạ? Em sẵn sàng hỗ trợ 24/7. Hoặc anh/chị có thể để lại số điện thoại để bác sĩ tư vấn trực tiếp nhé!"
-    }
-  ];
+  // Sử dụng idle messages từ props hoặc default
+  const IDLE_MESSAGES = idleMessages && idleMessages.length > 0 ? idleMessages : DEFAULT_IDLE_MESSAGES;
 
   // Reset idle timer khi có tin nhắn mới
   const resetIdleTimer = () => {
@@ -104,22 +114,26 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false 
       clearTimeout(idleTimerRef.current);
     }
     idleCountRef.current = 0;
-    startIdleTimer();
+    if (idleEnabled) {
+      startIdleTimer();
+    }
   };
 
   // Bắt đầu đếm thời gian idle
   const startIdleTimer = () => {
+    if (!idleEnabled) return; // Kiểm tra idle có được bật không
     if (messages.length === 0) return; // Chỉ chạy khi đã có conversation
     
     const currentIdleIndex = idleCountRef.current;
     if (currentIdleIndex >= IDLE_MESSAGES.length) return; // Đã gửi hết tin idle
 
-    const nextIdle = IDLE_MESSAGES[currentIdleIndex];
-    const delay = currentIdleIndex === 0 ? nextIdle.delay : (nextIdle.delay - IDLE_MESSAGES[currentIdleIndex - 1].delay);
+    const currentDelay = IDLE_MESSAGES[currentIdleIndex].delay * 1000; // Convert to ms
+    const previousDelay = currentIdleIndex > 0 ? IDLE_MESSAGES[currentIdleIndex - 1].delay * 1000 : 0;
+    const delay = currentIdleIndex === 0 ? currentDelay : (currentDelay - previousDelay);
 
     idleTimerRef.current = setTimeout(() => {
       // Thêm tin nhắn tự động từ bot
-      setMessages(prev => [...prev, { role: 'assistant', content: nextIdle.message }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: IDLE_MESSAGES[currentIdleIndex].message }]);
       idleCountRef.current++;
       startIdleTimer(); // Tiếp tục đếm cho tin tiếp theo
     }, delay);
