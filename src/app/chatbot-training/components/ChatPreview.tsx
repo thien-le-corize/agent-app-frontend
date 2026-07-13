@@ -75,6 +75,74 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false 
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const idleCountRef = useRef(0);
+
+  // Các tin nhắn tự động khi khách im lặng
+  const IDLE_MESSAGES = [
+    {
+      delay: 30000, // 30 giây
+      message: "😊 Anh/chị ơi, em thấy mình đang tìm hiểu về dịch vụ nha khoa. Hiện tại bên em đang có **ưu đãi giảm 20%** cho khách hàng mới đặt lịch trong tuần này. Anh/chị có muốn em tư vấn thêm không ạ?"
+    },
+    {
+      delay: 60000, // 1 phút sau tin đầu
+      message: "🎁 Ngoài ra, nếu anh/chị đặt lịch hẹn ngay hôm nay, bên em sẽ **tặng thêm gói kiểm tra răng miệng miễn phí** (trị giá 500.000đ). Anh/chị có muốn em hỗ trợ đặt lịch không ạ?"
+    },
+    {
+      delay: 90000, // 1.5 phút sau
+      message: "📅 Em có thể giúp anh/chị đặt lịch hẹn ngay bây giờ. Anh/chị cho em xin:\n- Họ tên\n- Số điện thoại\n- Thời gian mong muốn\n\nĐội ngũ bác sĩ sẽ liên hệ xác nhận ngay ạ! 🦷"
+    },
+    {
+      delay: 120000, // 2 phút sau
+      message: "💬 Anh/chị có thắc mắc gì về dịch vụ hay bảng giá không ạ? Em sẵn sàng hỗ trợ 24/7. Hoặc anh/chị có thể để lại số điện thoại để bác sĩ tư vấn trực tiếp nhé!"
+    }
+  ];
+
+  // Reset idle timer khi có tin nhắn mới
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    idleCountRef.current = 0;
+    startIdleTimer();
+  };
+
+  // Bắt đầu đếm thời gian idle
+  const startIdleTimer = () => {
+    if (messages.length === 0) return; // Chỉ chạy khi đã có conversation
+    
+    const currentIdleIndex = idleCountRef.current;
+    if (currentIdleIndex >= IDLE_MESSAGES.length) return; // Đã gửi hết tin idle
+
+    const nextIdle = IDLE_MESSAGES[currentIdleIndex];
+    const delay = currentIdleIndex === 0 ? nextIdle.delay : (nextIdle.delay - IDLE_MESSAGES[currentIdleIndex - 1].delay);
+
+    idleTimerRef.current = setTimeout(() => {
+      // Thêm tin nhắn tự động từ bot
+      setMessages(prev => [...prev, { role: 'assistant', content: nextIdle.message }]);
+      idleCountRef.current++;
+      startIdleTimer(); // Tiếp tục đếm cho tin tiếp theo
+    }, delay);
+  };
+
+  // Cleanup timer khi unmount
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Start idle timer khi có tin nhắn mới
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === 'user') {
+        resetIdleTimer();
+      }
+    }
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,6 +166,12 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false 
   const handleSend = async (msg?: string) => {
     const text = (msg || input).trim();
     if (!text || loading) return;
+
+    // Reset idle timer khi user gửi tin
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    idleCountRef.current = 0;
 
     const userMsg: ChatMessage = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
@@ -134,6 +208,11 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false 
   const handleClearChat = () => {
     setMessages([]);
     setSuggestions([]);
+    // Reset idle timer
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    idleCountRef.current = 0;
   };
 
   return (
