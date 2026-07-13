@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Heart, Eye, Download, X, Loader2, ChevronDown, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Heart, Eye, Download, X, Loader2, ChevronDown, Sparkles, Plus } from 'lucide-react';
 
 interface WorkItem {
   id: number;
@@ -32,6 +33,16 @@ export default function GalleryPage() {
   const [offset, setOffset] = useState(0);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Navigate to image tool with reference
+  const handleUseAsReference = (item: WorkItem) => {
+    const params = new URLSearchParams({
+      ref: item.output_image_url,
+      prompt: item.prompt_excerpt || '',
+    });
+    router.push(`/image-tool?${params.toString()}`);
+  };
 
   const fetchImages = useCallback(async (currentOffset: number) => {
     if (loading) return;
@@ -281,26 +292,36 @@ export default function GalleryPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2">
-                <a
-                  href={selectedItem.output_image_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition"
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => handleUseAsReference(selectedItem)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition"
                   style={{ background: 'var(--accent)', color: 'white' }}
                 >
-                  <Download className="w-4 h-4" />
-                  Download
-                </a>
-                <a
-                  href={`https://promptsref.com/share/${selectedItem.share_id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                >
-                  View Original
-                </a>
+                  <Plus className="w-4 h-4" />
+                  Use as Reference
+                </button>
+                <div className="flex gap-2">
+                  <a
+                    href={selectedItem.output_image_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </a>
+                  <a
+                    href={`https://promptsref.com/share/${selectedItem.share_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                  >
+                    View Original
+                  </a>
+                </div>
               </div>
             </div>
 
