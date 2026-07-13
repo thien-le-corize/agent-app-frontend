@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from 'reactflow';
-import { Palette, Plus, Check } from 'lucide-react';
+import { Palette, Plus, Check, Pencil, Trash2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface BrandNodeProps {
@@ -10,12 +10,14 @@ interface BrandNodeProps {
     selectedBrand?: any;
     onSelect?: (brand: any) => void;
     onCreateNew?: () => void;
+    onEdit?: (brand: any) => void;
+    onDeleteBrand?: (brand: any) => void;
     onDelete?: () => void;
   };
 }
 
 function BrandNode({ data }: BrandNodeProps) {
-  const { brands = [], selectedBrand, onSelect, onCreateNew, onDelete } = data;
+  const { brands = [], selectedBrand, onSelect, onCreateNew, onEdit, onDeleteBrand, onDelete } = data;
 
   return (
     <NodeWrapper onDelete={onDelete}>
@@ -28,23 +30,74 @@ function BrandNode({ data }: BrandNodeProps) {
         </div>
         <div className="node-body">
           {selectedBrand ? (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-[var(--node-border)]">
-              <div className="w-5 h-5 rounded" style={{ backgroundColor: selectedBrand.primary_color }} />
-              <span className="text-xs font-medium text-gray-200 truncate">{selectedBrand.name}</span>
-              <button onClick={() => onSelect?.(null)} className="ml-auto text-gray-500 hover:text-gray-300 text-[10px]">✕</button>
+            <div className="p-2 rounded-lg bg-white/5 border border-[var(--node-border)]">
+              <div className="flex items-center gap-2">
+                {selectedBrand.logo_url ? (
+                  <img src={selectedBrand.logo_url} alt="" className="w-6 h-6 rounded object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded" style={{ backgroundColor: selectedBrand.primary_color }} />
+                )}
+                <span className="text-xs font-medium text-gray-200 truncate flex-1">{selectedBrand.name}</span>
+              </div>
+              <div className="flex items-center gap-1 mt-2">
+                <div className="flex gap-1 flex-1">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: selectedBrand.primary_color }} title="Primary" />
+                  {selectedBrand.secondary_color && (
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: selectedBrand.secondary_color }} title="Secondary" />
+                  )}
+                </div>
+                <button 
+                  onClick={() => onEdit?.(selectedBrand)} 
+                  className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition"
+                  title="Sửa brand"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button 
+                  onClick={() => onSelect?.(null)} 
+                  className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition"
+                  title="Bỏ chọn"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ) : (
             <>
               <div className="max-h-28 overflow-y-auto space-y-1">
                 {brands.map((b: any) => (
-                  <button
+                  <div
                     key={b.id}
-                    onClick={() => onSelect?.(b)}
-                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 text-left transition-colors"
+                    className="group flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 transition-colors"
                   >
-                    <div className="w-4 h-4 rounded flex-shrink-0 border border-[var(--node-border)]" style={{ backgroundColor: b.primary_color }} />
-                    <span className="text-xs text-gray-300 truncate">{b.name}</span>
-                  </button>
+                    <button
+                      onClick={() => onSelect?.(b)}
+                      className="flex items-center gap-2 flex-1 text-left"
+                    >
+                      {b.logo_url ? (
+                        <img src={b.logo_url} alt="" className="w-4 h-4 rounded object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-4 h-4 rounded flex-shrink-0 border border-[var(--node-border)]" style={{ backgroundColor: b.primary_color }} />
+                      )}
+                      <span className="text-xs text-gray-300 truncate">{b.name}</span>
+                    </button>
+                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                      <button 
+                        onClick={() => onEdit?.(b)} 
+                        className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-blue-400"
+                        title="Sửa"
+                      >
+                        <Pencil className="w-2.5 h-2.5" />
+                      </button>
+                      <button 
+                        onClick={() => onDeleteBrand?.(b)} 
+                        className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-red-400"
+                        title="Xóa"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
               {brands.length === 0 && <p className="text-[10px] text-gray-500 text-center py-2">Chưa có brand</p>}

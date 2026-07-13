@@ -173,6 +173,9 @@ function WorkflowCanvas() {
   // Templates modal
   const [showTemplates, setShowTemplates] = useState(false);
 
+  // Edit brand modal
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
@@ -602,7 +605,24 @@ function WorkflowCanvas() {
       nds.map(node => {
         const deleteHandler = () => deleteNodeRef.current(node.id);
         if (node.type === 'brand') {
-          return { ...node, data: { brands, selectedBrand, onSelect: setSelectedBrand, onCreateNew: () => setSidePanel('brand'), onDelete: deleteHandler } };
+          return { ...node, data: { 
+            brands, 
+            selectedBrand, 
+            onSelect: setSelectedBrand, 
+            onCreateNew: () => setSidePanel('brand'), 
+            onEdit: (brand: Brand) => setEditingBrand(brand),
+            onDeleteBrand: async (brand: Brand) => {
+              if (!confirm(`Xóa brand "${brand.name}"?`)) return;
+              try {
+                const { deleteBrand } = await import('@/lib/api');
+                await deleteBrand(brand.id);
+                setBrands(prev => prev.filter(b => b.id !== brand.id));
+                if (selectedBrand?.id === brand.id) setSelectedBrand(null);
+                toast.success('Đã xóa brand');
+              } catch { toast.error('Lỗi xóa brand'); }
+            },
+            onDelete: deleteHandler 
+          } };
         }
         if (node.type === 'template') {
           return { ...node, data: { templates, selectedTemplate, onSelect: setSelectedTemplate, onCreateNew: () => setSidePanel('template'), onDelete: deleteHandler } };
@@ -911,7 +931,125 @@ function WorkflowCanvas() {
           toast.success(`Loaded: ${template.name}`);
         }}
       />
+
+      {/* Edit Brand Modal */}
+      {editingBrand && (
+        <EditBrandModal
+          brand={editingBrand}
+          onClose={() => setEditingBrand(null)}
+          onSave={async (updatedBrand) => {
+            setBrands(prev => prev.map(b => b.id === updatedBrand.id ? updatedBrand : b));
+            if (selectedBrand?.id === updatedBrand.id) setSelectedBrand(updatedBrand);
+            setEditingBrand(null);
+            toast.success('Đã cập nhật brand');
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// Edit Brand Modal Component
+function EditBrandModal({ brand, onClose, onSave }: { brand: Brand; onClose: () => void; onSave: (brand: Brand) => void }) {
+  const [name, setName] = useState(brand.name);
+  const [primaryColor, setPrimaryColor] = useState(brand.primary_color);
+  const [secondaryColor, setSecondaryColor] = useState(brand.secondary_color || '');
+  const [logoUrl, setLogoUrl] = useState(brand.logo_url || '');
+  const [description, setDescription] = useState(brand.description || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error('Nhập tên brand'); return; }
+    setSaving(true);
+    try {
+      const { updateBrand } = await import('@/lib/api');
+      const updated = await updateBrand(brand.id, {
+        name: name.trim(),
+        primary_color: primaryColor,
+        secondary_color: secondaryColor || undefined,
+        logo_url: logoUrl || undefined,
+        description: description || undefined,
+      });
+      onSave(updated);
+    } catch { toast.error('Lỗi cập nhật'); }
+    finally { setSaving(false); }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { uploadFile } = await import('@/lib/api');
+      const { url } = await uploadFile(file);
+      setLogoUrl(url);
+      toast.success('Đã upload logo');
+    } catch { toast.error('Lỗi upload'); }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/60" onClick={onClose} />
+      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] rounded-xl overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Sửa Brand</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-tertiary)' }}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Logo */}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Logo</label>
+            <div className="flex items-center gap-3">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="w-12 h-12 rounded-lg object-cover" style={{ border: '1px solid var(--border)' }} />
+              ) : (
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ background: primaryColor, border: '1px solid var(--border)' }}>
+                  <span className="text-white text-lg font-bold">{name.charAt(0)}</span>
+                </div>
+              )}
+              <label className="px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                Đổi logo
+                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+              </label>
+            </div>
+          </div>
+          {/* Name */}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Tên brand *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+          </div>
+          {/* Colors */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Màu chính</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer" />
+                <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1 px-2 py-1.5 rounded text-xs font-mono outline-none" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Màu phụ</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={secondaryColor || '#888888'} onChange={e => setSecondaryColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer" />
+                <input type="text" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} placeholder="#888888" className="flex-1 px-2 py-1.5 rounded text-xs font-mono outline-none" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+              </div>
+            </div>
+          </div>
+          {/* Description */}
+          <div>
+            <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Mô tả</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Mô tả ngắn về brand..." className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-lg" style={{ color: 'var(--text-secondary)' }}>Hủy</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50" style={{ background: 'var(--accent)', color: 'white' }}>
+            {saving ? 'Đang lưu...' : 'Lưu'}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 

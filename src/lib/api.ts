@@ -31,6 +31,22 @@ export async function createBrand(brandData: {
   return data;
 }
 
+export async function updateBrand(id: string, brandData: {
+  name?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  description?: string;
+  logo_url?: string;
+}): Promise<Brand> {
+  const { data } = await api.put(`/brands/${id}`, brandData);
+  return data;
+}
+
+export async function deleteBrand(id: string): Promise<void> {
+  await api.delete(`/brands/${id}`);
+}
+
 // Templates
 export async function getTemplates(category?: string): Promise<Template[]> {
   const params = category ? { category } : {};
