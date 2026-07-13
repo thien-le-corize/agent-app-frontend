@@ -40,7 +40,7 @@ const MODELS = [
 
 const QUALITY_OPTIONS = ['1K', '2K', '4K'];
 const BATCH_OPTIONS = [1, 2, 3, 4];
-const ASPECT_RATIOS = ['Auto', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'];
+const ASPECT_RATIOS = ['Tự động', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'];
 
 function ImageToolContent() {
   // Left panel state
@@ -145,14 +145,36 @@ function ImageToolContent() {
   };
 
   // Add image from gallery as reference
-  const handleAddFromGallery = (item: WorkItem) => {
+  const handleAddFromGallery = async (item: WorkItem) => {
     if (referenceImages.length >= 16) {
-      toast.error('Maximum 16 reference images');
+      toast.error('Tối đa 16 hình tham khảo');
       return;
     }
+    
+    // Add reference image
     setReferenceImages(prev => [...prev, item.output_image_url]);
-    setPrompt(item.prompt_excerpt || '');
-    toast.success('Added as reference');
+    
+    // Fetch full prompt from API
+    if (item.share_id) {
+      toast.loading('Đang lấy prompt...', { id: 'fetch-prompt' });
+      try {
+        const res = await fetch(`/api/gallery/prompt?share_id=${item.share_id}`);
+        const data = await res.json();
+        if (data.prompt) {
+          setPrompt(data.prompt);
+          toast.success('Đã thêm hình và prompt', { id: 'fetch-prompt' });
+        } else {
+          setPrompt(item.prompt_excerpt || '');
+          toast.success('Đã thêm làm tham khảo', { id: 'fetch-prompt' });
+        }
+      } catch {
+        setPrompt(item.prompt_excerpt || '');
+        toast.success('Đã thêm làm tham khảo', { id: 'fetch-prompt' });
+      }
+    } else {
+      setPrompt(item.prompt_excerpt || '');
+      toast.success('Đã thêm làm tham khảo');
+    }
   };
 
   // Remove reference image
@@ -215,17 +237,17 @@ function ImageToolContent() {
           {/* Header */}
           <div>
             <h1 className="text-xl font-bold text-orange-500">
-              Watermark-Free AI Image Generator Online
+              Tạo Ảnh AI Miễn Phí
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Create high-resolution AI images from text prompts or reference images.
+              Tạo ảnh chất lượng cao từ prompt hoặc hình tham khảo.
             </p>
           </div>
 
           {/* Reference Images */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Reference Images (up to 16)
+              Hình tham khảo (tối đa 16)
             </label>
             <div className="flex flex-wrap gap-2">
               {referenceImages.map((img, idx) => (
@@ -262,7 +284,7 @@ function ImageToolContent() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-300 flex items-center gap-1">
-                Prompt <Wand2 className="w-3.5 h-3.5 text-gray-500" />
+                Mô tả ảnh <Wand2 className="w-3.5 h-3.5 text-gray-500" />
               </label>
               <span className="text-xs text-gray-500">{prompt.length}/20000</span>
             </div>
@@ -270,7 +292,7 @@ function ImageToolContent() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the image you imagine, or click the button above to get a random prompt"
+                placeholder="Mô tả hình ảnh bạn muốn tạo..."
                 className="w-full h-28 px-3 py-2.5 rounded-lg text-sm resize-none outline-none transition"
                 style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
               />
@@ -283,7 +305,7 @@ function ImageToolContent() {
           {/* Models */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Models (Multiple Selection)
+              Chọn Model (có thể chọn nhiều)
             </label>
             <div className="grid grid-cols-2 gap-2">
               {MODELS.map(model => (
@@ -310,7 +332,7 @@ function ImageToolContent() {
 
           {/* Quality */}
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-2 block">Quality</label>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Chất lượng</label>
             <div className="flex gap-2">
               {QUALITY_OPTIONS.map(q => (
                 <button
@@ -330,7 +352,7 @@ function ImageToolContent() {
 
           {/* Batch Count */}
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-2 block">Batch Count</label>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Số lượng ảnh</label>
             <div className="flex gap-2">
               {BATCH_OPTIONS.map(b => (
                 <button
@@ -350,7 +372,7 @@ function ImageToolContent() {
 
           {/* Aspect Ratio */}
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-2 block">Aspect Ratio</label>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Tỉ lệ khung hình</label>
             <div className="flex flex-wrap gap-2">
               {ASPECT_RATIOS.map(ratio => (
                 <button
@@ -372,7 +394,7 @@ function ImageToolContent() {
           {/* Credits Info */}
           <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: '#1a1a1a' }}>
             <div>
-              <p className="text-xs text-gray-400">Total Credits</p>
+              <p className="text-xs text-gray-400">Tổng credits</p>
               <p className="text-sm font-medium text-white">{selectedModels.length * batchCount}</p>
             </div>
             <div>
@@ -384,7 +406,7 @@ function ImageToolContent() {
           {/* Publish Toggle */}
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-300 flex items-center gap-1">
-              Publish to Explore <span className="text-yellow-500">👋</span>
+              Công khai lên thư viện <span className="text-yellow-500">👋</span>
             </label>
             <button
               onClick={() => setPublishToExplore(!publishToExplore)}
@@ -410,13 +432,13 @@ function ImageToolContent() {
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            Generate Image Online
+            Tạo ảnh ngay
           </button>
 
           {/* Generated Results */}
           {generatedImages.length > 0 && (
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-2 block">Generated Images</label>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">Ảnh đã tạo</label>
               <div className="grid grid-cols-2 gap-2">
                 {generatedImages.map((img, idx) => (
                   <div key={idx} className="relative rounded-lg overflow-hidden group">
@@ -439,10 +461,10 @@ function ImageToolContent() {
         {/* Tabs */}
         <div className="flex items-center gap-1 px-5 py-3" style={{ borderBottom: '1px solid #222' }}>
           {[
-            { id: 'history', label: 'History', icon: History },
-            { id: 'library', label: 'Prompt Library', icon: BookOpen },
+            { id: 'history', label: 'Lịch sử', icon: History },
+            { id: 'library', label: 'Thư viện Prompt', icon: BookOpen },
             { id: 'effects', label: 'AI Effects', icon: Wand2 },
-            { id: 'saved', label: 'My Save', icon: Bookmark },
+            { id: 'saved', label: 'Đã lưu', icon: Bookmark },
           ].map(tab => (
             <button
               key={tab.id}
@@ -466,7 +488,7 @@ function ImageToolContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search published image prompts"
+              placeholder="Tìm kiếm prompt..."
               className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm outline-none"
               style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
             />
