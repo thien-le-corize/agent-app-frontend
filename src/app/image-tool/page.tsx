@@ -50,12 +50,15 @@ function ImageToolContent() {
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
 
   // Right panel state
-  const [activeTab, setActiveTab] = useState<'library' | 'history' | 'effects' | 'saved'>('library');
+  const [activeTab, setActiveTab] = useState<'library' | 'history' | 'saved'>('library');
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  
+  // History state
+  const [historyImages, setHistoryImages] = useState<{url: string; prompt: string; createdAt: string}[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -186,26 +189,74 @@ function ImageToolContent() {
     );
   };
 
-  // Generate image (mock)
+  // Generate image - gọi API thật
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast.error('Please enter a prompt');
+      toast.error('Vui lòng nhập mô tả ảnh');
       return;
     }
     
     setGenerating(true);
-    toast.loading('Generating image...', { id: 'generating' });
+    toast.loading('Đang tạo ảnh...', { id: 'generating' });
     
-    // Simulate API call
-    setTimeout(() => {
-      // Mock generated images
-      const mockResults = Array(batchCount).fill(null).map((_, i) => 
-        `https://picsum.photos/seed/${Date.now() + i}/1024`
-      );
-      setGeneratedImages(mockResults);
+    try {
+      // Upload reference images nếu có
+      let refUrls: string[] = [];
+      for (const img of referenceImages) {
+        // Nếu là data URL (upload từ máy), cần upload lên server
+        if (img.startsWith('data:')) {
+          // Convert base64 to blob and upload
+          const res = await fetch(img);
+          const blob = await res.blob();
+          const file = new File([blob], 'reference.jpg', { type: 'image/jpeg' });
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/upload`, {
+            method: 'POST',
+            body: formData,
+          });
+          const { url } = await uploadRes.json();
+          refUrls.push(url);
+        } else {
+          // Đã là URL
+          refUrls.push(img);
+        }
+      }
+
+      // Gọi API generate image
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/image-generations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_input: prompt,
+          reference_images: refUrls.length > 0 ? refUrls : undefined,
+          size: aspectRatio === 'Tự động' ? 'auto' : aspectRatio,
+          quality: quality.toLowerCase(),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate');
+      
+      const result = await response.json();
+      
+      if (result.result_url) {
+        setGeneratedImages([result.result_url]);
+        // Lưu vào history
+        setHistoryImages(prev => [{
+          url: result.result_url,
+          prompt: prompt.slice(0, 100) + (prompt.length > 100 ? '...' : ''),
+          createdAt: new Date().toISOString(),
+        }, ...prev]);
+        toast.success('Tạo ảnh thành công!', { id: 'generating' });
+      } else {
+        throw new Error('No result URL');
+      }
+    } catch (error) {
+      console.error('Generate error:', error);
+      toast.error('Lỗi tạo ảnh. Vui lòng thử lại.', { id: 'generating' });
+    } finally {
       setGenerating(false);
-      toast.success('Images generated!', { id: 'generating' });
-    }, 3000);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -460,7 +511,6 @@ function ImageToolContent() {
           {[
             { id: 'history', label: 'Lịch sử', icon: History },
             { id: 'library', label: 'Thư viện Prompt', icon: BookOpen },
-            { id: 'effects', label: 'AI Effects', icon: Wand2 },
             { id: 'saved', label: 'Đã lưu', icon: Bookmark },
           ].map(tab => (
             <button
@@ -477,76 +527,131 @@ function ImageToolContent() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="px-5 py-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm prompt..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm outline-none"
-              style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
-            />
+        {/* Search - chỉ hiện khi tab library */}
+        {activeTab === 'library' && (
+          <div className="px-5 py-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm prompt..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm outline-none"
+                style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Gallery Grid */}
+        {/* Content based on tab */}
         <div 
           ref={galleryRef}
           className="flex-1 overflow-y-auto px-5 pb-5"
         >
-          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3 space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="break-inside-avoid group relative rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-xl"
-                style={{ background: '#1a1a1a' }}
-                onClick={() => handleAddFromGallery(item)}
-              >
-                <img
-                  src={item.output_image_url}
-                  alt=""
-                  className="w-full object-cover"
-                  loading="lazy"
-                />
-                
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <div className="flex items-center gap-3 text-white/80 text-xs">
-                      <div className="flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5" />
-                        <span>{item.likes_count}</span>
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div>
+              {historyImages.length === 0 ? (
+                <div className="text-center py-16">
+                  <History className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                  <p className="text-gray-500 text-sm">Chưa có ảnh nào được tạo</p>
+                  <p className="text-gray-600 text-xs mt-1">Ảnh bạn tạo sẽ hiển thị ở đây</p>
+                </div>
+              ) : (
+                <div className="columns-2 sm:columns-3 md:columns-4 gap-3 space-y-3">
+                  {historyImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="break-inside-avoid group relative rounded-xl overflow-hidden"
+                      style={{ background: '#1a1a1a' }}
+                    >
+                      <img src={img.url} alt="" className="w-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <p className="text-white/90 text-xs line-clamp-2 mb-1">{img.prompt}</p>
+                          <p className="text-white/50 text-[10px]">{formatDate(img.createdAt)}</p>
+                        </div>
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          <a 
+                            href={img.url} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="p-2 bg-white/90 rounded-lg hover:bg-white transition"
+                          >
+                            <Download className="w-3.5 h-3.5 text-gray-700" />
+                          </a>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>{item.view_count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Library Tab - Gallery Grid */}
+          {activeTab === 'library' && (
+            <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3 space-y-3">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="break-inside-avoid group relative rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-xl"
+                  style={{ background: '#1a1a1a' }}
+                  onClick={() => handleAddFromGallery(item)}
+                >
+                  <img
+                    src={item.output_image_url}
+                    alt=""
+                    className="w-full object-cover"
+                    loading="lazy"
+                  />
+                  
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <div className="flex items-center gap-3 text-white/80 text-xs">
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-3.5 h-3.5" />
+                          <span>{item.likes_count}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>{item.view_count}</span>
+                        </div>
+                        <span className="ml-auto">{formatDate(item.created_at)}</span>
                       </div>
-                      <span className="ml-auto">{formatDate(item.created_at)}</span>
+                    </div>
+                    
+                    {/* Add button */}
+                    <div className="absolute top-2 right-2">
+                      <button 
+                        className="p-2 bg-purple-600 rounded-lg text-white text-xs font-medium hover:bg-purple-700 transition"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddFromGallery(item);
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  
-                  {/* Add button */}
-                  <div className="absolute top-2 right-2">
-                    <button 
-                      className="p-2 bg-purple-600 rounded-lg text-white text-xs font-medium hover:bg-purple-700 transition"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddFromGallery(item);
-                      }}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* Saved Tab */}
+          {activeTab === 'saved' && (
+            <div className="text-center py-16">
+              <Bookmark className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+              <p className="text-gray-500 text-sm">Chưa có ảnh đã lưu</p>
+              <p className="text-gray-600 text-xs mt-1">Lưu ảnh yêu thích để xem lại sau</p>
+            </div>
+          )}
 
           {/* Loading */}
-          {loading && (
+          {loading && activeTab === 'library' && (
             <div className="flex justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
             </div>
