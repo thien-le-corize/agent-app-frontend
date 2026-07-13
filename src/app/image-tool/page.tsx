@@ -257,21 +257,23 @@ function ImageToolContent() {
                 </div>
               ))}
               {referenceImages.length < 16 && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-600 hover:border-gray-500 flex items-center justify-center transition"
-                >
-                  <Plus className="w-5 h-5 text-gray-500" />
-                </button>
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-600 hover:border-gray-500 flex items-center justify-center transition"
+                  >
+                    <Plus className="w-5 h-5 text-gray-500" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
             </div>
           </div>
 
