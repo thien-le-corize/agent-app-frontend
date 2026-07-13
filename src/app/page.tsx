@@ -264,9 +264,13 @@ function WorkflowCanvas() {
     const currentFiles = referenceFilesRef.current;
     const currentImageFiles = imageNodeFilesRef.current;
 
-    // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt)
+    // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
-    if (!currentPrompt.trim() && !hasAIPromptNode) { toast.error('Nhập prompt hoặc thêm node Prompt Builder'); return; }
+    const hasPromptNodeWithText = nodes.some((n) => n.type === 'prompt' && (n.data as any)?.prompt?.trim());
+    if (!currentPrompt.trim() && !hasAIPromptNode && !hasPromptNodeWithText) { 
+      toast.error('Nhập prompt trong Prompt Builder node'); 
+      return; 
+    }
 
     const numToGenerate = count || numImages;
     setGenerating(true);
@@ -325,7 +329,12 @@ function WorkflowCanvas() {
         for (const inp of allInputNodes) {
           if (!inp) continue;
           if (inp.type === 'prompt') {
-            // Node prompt - check xem có aiprompt nối vào nó không
+            // Lấy prompt từ PromptNode data
+            const promptNodeData = inp.data as any;
+            if (promptNodeData?.prompt && promptNodeData.prompt.trim()) {
+              nodePrompt = promptNodeData.prompt;
+            }
+            // Cũng check xem có aiprompt nối vào nó không
             const promptInputEdges = edges.filter((e) => e.target === inp.id);
             for (const pe of promptInputEdges) {
               if (nodeResults[pe.source]) {
