@@ -44,16 +44,19 @@ const CONNECTION_RULES: Record<string, string[]> = {
 
 const initialNodes: Node[] = [
   // Brand Node - chọn thương hiệu
-  { id: 'brand-1', type: 'brand', position: { x: 50, y: 80 }, data: {} },
+  { id: 'brand-1', type: 'brand', position: { x: 50, y: 50 }, data: {} },
+  // Reference Node - upload hình tham khảo
+  { id: 'references-1', type: 'references', position: { x: 50, y: 250 }, data: {} },
   // Prompt Builder - nhập mô tả, style → tạo prompt
-  { id: 'prompt-1', type: 'prompt', position: { x: 350, y: 100 }, data: {} },
+  { id: 'prompt-1', type: 'prompt', position: { x: 400, y: 150 }, data: {} },
   // Generate Image - tạo ảnh từ prompt
-  { id: 'generate-1', type: 'generate', position: { x: 700, y: 100 }, data: {} },
+  { id: 'generate-1', type: 'generate', position: { x: 750, y: 150 }, data: {} },
 ];
 
 const initialEdges: Edge[] = [
   { id: 'e1', source: 'brand-1', target: 'prompt-1', animated: true },
-  { id: 'e2', source: 'prompt-1', target: 'generate-1', animated: true },
+  { id: 'e2', source: 'references-1', target: 'prompt-1', animated: true },
+  { id: 'e3', source: 'prompt-1', target: 'generate-1', animated: true },
 ];
 
 // ═══════════════════════════════════════════════
