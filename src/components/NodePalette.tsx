@@ -22,17 +22,16 @@ export interface NodeTypeInfo {
   description: string;
 }
 
-// Node types cũ của bạn
 export const NODE_TYPES_LIST: NodeTypeInfo[] = [
-  { type: 'brand', label: 'Brand', icon: Palette, color: 'violet', description: 'Chọn thương hiệu' },
-  { type: 'image', label: 'Image Source', icon: ImageIcon, color: 'cyan', description: 'Upload hình input' },
-  { type: 'references', label: 'References', icon: ImageIcon, color: 'amber', description: 'Style reference' },
-  { type: 'aiprompt', label: 'AI Prompt', icon: Wand2, color: 'purple', description: 'AI tạo prompt từ brand' },
-  { type: 'template', label: 'Template', icon: FileText, color: 'blue', description: 'Prompt mẫu' },
+  { type: 'brand', label: 'Thương hiệu', icon: Palette, color: 'violet', description: 'Chọn thương hiệu' },
+  { type: 'image', label: 'Ảnh đầu vào', icon: ImageIcon, color: 'cyan', description: 'Upload ảnh input' },
+  { type: 'references', label: 'Hình tham khảo', icon: ImageIcon, color: 'amber', description: 'Tham khảo style/layout' },
+  { type: 'aiprompt', label: 'Prompt AI', icon: Wand2, color: 'purple', description: 'AI tạo prompt từ thương hiệu' },
+  { type: 'template', label: 'Mẫu prompt', icon: FileText, color: 'blue', description: 'Prompt mẫu' },
   { type: 'prompt', label: 'Prompt', icon: MessageSquare, color: 'emerald', description: 'Nhập prompt thủ công' },
-  { type: 'generate', label: 'Generate Image', icon: Sparkles, color: 'rose', description: 'Tạo hình ảnh' },
-  { type: 'video', label: 'Generate Video', icon: Video, color: 'indigo', description: 'Tạo video' },
-  { type: 'text', label: 'Text Note', icon: Type, color: 'gray', description: 'Ghi chú' },
+  { type: 'generate', label: 'Tạo ảnh', icon: Sparkles, color: 'rose', description: 'Tạo hình ảnh' },
+  { type: 'video', label: 'Tạo video', icon: Video, color: 'indigo', description: 'Tạo video' },
+  { type: 'text', label: 'Ghi chú', icon: Type, color: 'gray', description: 'Ghi chú văn bản' },
 ];
 
 // Map màu cho icon backgrounds - sử dụng accent colors mới
@@ -83,7 +82,7 @@ export default function NodePalette() {
           />
           <input
             type="text"
-            placeholder="Search modules..."
+            placeholder="Tìm module..."
             className="w-full pl-9 pr-4 py-2 rounded-lg text-[12px] outline-none"
             style={{
               background: 'var(--bg-elevated)',
@@ -129,7 +128,7 @@ export default function NodePalette() {
             className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Modules
+            Module
           </p>
           <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
         </div>

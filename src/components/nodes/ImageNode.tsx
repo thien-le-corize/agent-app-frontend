@@ -60,7 +60,7 @@ function ImageNode({ data }: ImageNodeProps) {
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 10px' }}>
           <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-gray-200 font-semibold text-[11px]">{label || 'Image Source'}</span>
+          <span className="text-gray-200 font-semibold text-[11px]">{label || 'Ảnh đầu vào'}</span>
           <div className="flex items-center gap-1.5 ml-auto">
             {totalCount > 0 && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-md text-cyan-400" style={{ background: 'rgba(6,182,212,0.1)' }}>
