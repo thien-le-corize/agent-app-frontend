@@ -365,6 +365,13 @@
   fill: var(--canvas-dot) !important;
 }
 
+.react-flow__node {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 .react-flow__edge-path {
   stroke: var(--border-hover) !important;
   stroke-width: 2 !important;
