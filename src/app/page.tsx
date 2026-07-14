@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Eye, Download, X, Loader2, Sparkles, Plus, Search, Filter } from 'lucide-react';
 
@@ -72,7 +72,7 @@ export default function HomePage() {
   };
 
   // Fetch images
-  const fetchImages = async (currentOffset: number) => {
+  const fetchImages = useCallback(async (currentOffset: number) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
@@ -97,31 +97,36 @@ export default function HomePage() {
       setLoading(false);
       loadingRef.current = false;
     }
-  };
+  }, []);
 
   // Tải lần đầu
   useEffect(() => {
     fetchImages(0);
   }, []);
 
-  // Infinite scroll
+  // Infinite scroll — dùng ref để giữ giá trị offset & hasMore mới nhất
+  const offsetRef = useRef(0);
+  const hasMoreRef = useRef(true);
+
+  useEffect(() => { offsetRef.current = offset; }, [offset]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+
   useEffect(() => {
     const currentLoader = loaderRef.current;
     if (!currentLoader) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
-          fetchImages(offset);
+        if (entries[0].isIntersecting && hasMoreRef.current && !loadingRef.current) {
+          fetchImages(offsetRef.current);
         }
       },
       { threshold: 0.1 }
     );
 
     observer.observe(currentLoader);
-
     return () => observer.disconnect();
-  }, [offset, hasMore]);
+  }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
