@@ -35,9 +35,7 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
         uploadedUrls.push(res.url);
       }
       // Thêm vào libraryUrls của node
-      onLibraryUrlsChange?.([...libraryUrls, ...uploadedUrls]);
-      // Vẫn add file để backward compat với flow execution
-      onFilesAdd?.(accepted);
+      onLibraryUrlsChange?.([...libraryUrls, ...uploadedUrls].filter((url, index, urls) => urls.indexOf(url) === index));
     } catch {
       // fallback: chỉ add file local
       onFilesAdd?.(accepted);
@@ -148,8 +146,17 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
               style={{ border: '1px dashed #2a2a2a' }}
             >
               <input {...getInputProps()} />
-              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${isDragActive ? 'text-amber-400' : 'text-gray-600'}`} />
-              <p className="text-[10px] text-gray-500">Upload & lưu vào thư viện</p>
+              {uploading ? (
+                <>
+                  <div className="w-5 h-5 mx-auto mb-1.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                  <p className="text-[10px] text-amber-400">Đang upload...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className={`w-5 h-5 mx-auto mb-1.5 ${isDragActive ? 'text-amber-400' : 'text-gray-600'}`} />
+                  <p className="text-[10px] text-gray-500">Upload & lưu vào thư viện</p>
+                </>
+              )}
             </div>
 
             {/* Hoặc chọn từ thư viện */}

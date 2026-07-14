@@ -33,8 +33,7 @@ function ImageNode({ data }: ImageNodeProps) {
         const res = await uploadReferenceImage(file, file.name);
         uploadedUrls.push(res.url);
       }
-      onLibraryUrlsChange?.([...libraryUrls, ...uploadedUrls]);
-      onFilesAdd?.(accepted);
+      onLibraryUrlsChange?.([...libraryUrls, ...uploadedUrls].filter((url, index, urls) => urls.indexOf(url) === index));
     } catch {
       onFilesAdd?.(accepted);
     } finally {
@@ -132,9 +131,18 @@ function ImageNode({ data }: ImageNodeProps) {
               style={{ border: '1px dashed #2a2a2a' }}
             >
               <input {...getInputProps()} />
-              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${isDragActive ? 'text-cyan-400' : 'text-gray-600'}`} />
-              <p className="text-[10px] text-gray-500">Upload & lưu vào thư viện</p>
-              <p className="text-[9px] text-gray-600 mt-0.5">PNG, JPG, WEBP</p>
+              {uploading ? (
+                <>
+                  <div className="w-5 h-5 mx-auto mb-1.5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+                  <p className="text-[10px] text-cyan-400">Đang upload...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className={`w-5 h-5 mx-auto mb-1.5 ${isDragActive ? 'text-cyan-400' : 'text-gray-600'}`} />
+                  <p className="text-[10px] text-gray-500">Upload & lưu vào thư viện</p>
+                  <p className="text-[9px] text-gray-600 mt-0.5">PNG, JPG, WEBP</p>
+                </>
+              )}
             </div>
             <button
               onPointerDown={e => e.stopPropagation()}
