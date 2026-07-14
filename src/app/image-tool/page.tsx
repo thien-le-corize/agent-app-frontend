@@ -225,13 +225,26 @@ function ImageToolContent() {
       }
 
       // Gọi API generate image
+      // Map aspect ratio sang size cho OpenAI
+      const sizeMap: Record<string, string> = {
+        'Tự động': '1024x1024',
+        '1:1': '1024x1024',
+        '2:3': '1024x1536',
+        '3:2': '1536x1024',
+        '3:4': '1024x1536',
+        '4:3': '1536x1024',
+        '9:16': '1024x1792',
+        '16:9': '1792x1024',
+      };
+      const imageSize = sizeMap[aspectRatio] || '1024x1024';
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/image-generations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_input: prompt,
           reference_images: refUrls.length > 0 ? refUrls : undefined,
-          size: aspectRatio === 'Tự động' ? 'auto' : aspectRatio,
+          size: imageSize,
           quality: quality.toLowerCase(),
         }),
       });
