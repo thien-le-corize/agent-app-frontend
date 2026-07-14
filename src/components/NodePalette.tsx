@@ -12,6 +12,7 @@ import {
   Wand2,
   Search,
   ChevronDown,
+  ImagePlus,
 } from 'lucide-react';
 
 export interface NodeTypeInfo {
@@ -23,15 +24,16 @@ export interface NodeTypeInfo {
 }
 
 export const NODE_TYPES_LIST: NodeTypeInfo[] = [
-  { type: 'brand', label: 'Thương hiệu', icon: Palette, color: 'violet', description: 'Chọn thương hiệu' },
-  { type: 'image', label: 'Ảnh đầu vào', icon: ImageIcon, color: 'cyan', description: 'Upload ảnh input' },
-  { type: 'references', label: 'Hình tham khảo', icon: ImageIcon, color: 'amber', description: 'Tham khảo style/layout' },
-  { type: 'aiprompt', label: 'Prompt AI', icon: Wand2, color: 'purple', description: 'AI tạo prompt từ thương hiệu' },
-  { type: 'template', label: 'Mẫu prompt', icon: FileText, color: 'blue', description: 'Prompt mẫu' },
-  { type: 'prompt', label: 'Prompt', icon: MessageSquare, color: 'emerald', description: 'Nhập prompt thủ công' },
-  { type: 'generate', label: 'Tạo ảnh', icon: Sparkles, color: 'rose', description: 'Tạo hình ảnh' },
-  { type: 'video', label: 'Tạo video', icon: Video, color: 'indigo', description: 'Tạo video' },
-  { type: 'text', label: 'Ghi chú', icon: Type, color: 'gray', description: 'Ghi chú văn bản' },
+  { type: 'brand',      label: 'Thương hiệu',    icon: Palette,       color: 'violet',  description: 'Chọn thương hiệu' },
+  { type: 'input',      label: 'Ảnh ghép vào',   icon: ImagePlus,     color: 'blue',    description: 'Người/sản phẩm ghép trực tiếp vào ảnh' },
+  { type: 'references', label: 'Hình tham khảo', icon: ImageIcon,     color: 'amber',   description: 'Layout/style reference' },
+  { type: 'image',      label: 'Image Source',   icon: ImageIcon,     color: 'cyan',    description: 'Ảnh input khác' },
+  { type: 'aiprompt',   label: 'Prompt AI',      icon: Wand2,         color: 'purple',  description: 'AI tạo prompt từ thương hiệu' },
+  { type: 'template',   label: 'Mẫu prompt',     icon: FileText,      color: 'indigo',  description: 'Prompt mẫu' },
+  { type: 'prompt',     label: 'Prompt',         icon: MessageSquare, color: 'emerald', description: 'Nhập prompt thủ công' },
+  { type: 'generate',   label: 'Tạo ảnh',        icon: Sparkles,      color: 'rose',    description: 'Tạo hình ảnh' },
+  { type: 'video',      label: 'Tạo video',      icon: Video,         color: 'red',     description: 'Tạo video' },
+  { type: 'text',       label: 'Ghi chú',        icon: Type,          color: 'gray',    description: 'Ghi chú văn bản' },
 ];
 
 // Map màu cho icon backgrounds - sử dụng accent colors mới
@@ -42,6 +44,7 @@ const iconBgMap: Record<string, string> = {
   emerald: 'bg-emerald-500/20 text-emerald-400',
   indigo: 'bg-indigo-500/20 text-indigo-400',
   rose: 'bg-rose-500/20 text-rose-400',
+  red: 'bg-red-500/20 text-red-400',
   cyan: 'bg-cyan-500/20 text-cyan-400',
   gray: 'bg-gray-500/20 text-gray-400',
   purple: 'bg-purple-500/20 text-purple-400',

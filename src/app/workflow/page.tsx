@@ -395,6 +395,8 @@ function WorkflowCanvas() {
         // Collect data từ input nodes
         let nodePrompt = currentPrompt;
         let refImages: string[] = [];
+        let inputImages: string[] = [];
+        let styleReferenceImages: string[] = [];
 
         for (const inp of allInputNodes) {
           if (!inp) continue;
@@ -423,9 +425,11 @@ function WorkflowCanvas() {
             const libUrls = imageNodeLibraryUrls[inp.id] || [];
             console.log(`[Flow] Image node ${inp.id}: ${files.length} files, ${libUrls.length} library URLs`);
             appendUnique(refImages, libUrls);
+            appendUnique(inputImages, libUrls);
             for (const file of files) {
               const { url } = await uploadFile(file);
               appendUnique(refImages, [url]);
+              appendUnique(inputImages, [url]);
               console.log(`[Flow] Uploaded image: ${url.slice(0, 60)}`);
             }
           } else if (inp.type === 'input') {
@@ -434,22 +438,27 @@ function WorkflowCanvas() {
             const libUrls = inputNodeLibraryUrls[inp.id] || [];
             console.log(`[Flow] Input node ${inp.id}: ${files.length} files, ${libUrls.length} library URLs`);
             appendUnique(refImages, libUrls);
+            appendUnique(inputImages, libUrls);
             for (const file of files) {
               const { url } = await uploadFile(file);
               appendUnique(refImages, [url]);
+              appendUnique(inputImages, [url]);
             }
           } else if (inp.type === 'references') {
             // Library URLs đã có trên server
             const libUrls = referenceLibraryUrls || [];
             appendUnique(refImages, libUrls);
+            appendUnique(styleReferenceImages, libUrls);
             for (const file of currentFiles) {
               const { url } = await uploadFile(file);
               appendUnique(refImages, [url]);
+              appendUnique(styleReferenceImages, [url]);
             }
           } else if (inp.type === 'generate') {
             // Output từ node generate trước → dùng làm input image
             if (nodeResults[inp.id]) {
               appendUnique(refImages, [nodeResults[inp.id]]);
+              appendUnique(inputImages, [nodeResults[inp.id]]);
             }
           }
         }
@@ -512,41 +521,54 @@ function WorkflowCanvas() {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
 
-          // Collect ref images: từ aiprompt node refs + image nodes
+          // Collect ref images: từ aiprompt node refs + image/input/references nodes
           let allRefImages = [...refImages];
-          // Lấy thêm refs từ aiprompt node nếu có
           for (const inp of allInputNodes) {
             if (!inp) continue;
             if (inp.type === 'aiprompt' && nodeResults[inp.id + '_refs']) {
               try {
                 const aipromptRefs = JSON.parse(nodeResults[inp.id + '_refs']);
                 appendUnique(allRefImages, aipromptRefs);
+                appendUnique(styleReferenceImages, aipromptRefs);
               } catch {}
             }
           }
 
-          console.log(`[Flow] Generate with prompt (${finalPrompt.length} chars): ${finalPrompt.slice(0, 100)}...`);
-          console.log(`[Flow] Reference images: ${allRefImages.length}`);
+          const generateVariationIndex = generateNodes.findIndex((node) => node.id === execNode.id) + 1;
 
-          // Mỗi node chỉ tạo 1 ảnh
-          console.log(`[Flow] Generating 1 image...`);
+          // Build enhanced prompt với vai trò ảnh rõ ràng
+          let enhancedPrompt = finalPrompt;
+          if (inputImages.length > 0) {
+            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, outfit, pose, and key visual details as much as possible. Do not replace the input subject with a person/product from the style reference.]`;
+          }
+          if (styleReferenceImages.length > 0) {
+            enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
+          }
+          if (currentBrand?.logo_url) {
+            enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
+          }
+          enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: Create a distinct composition variant while following the same brief. Change layout balance, subject placement, typography arrangement, or decorative elements so this output is not identical to other generator nodes.]`;
+
+          console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
+          console.log(`[Flow] Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
 
           const res = await generateImage({
             ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
-            user_input: finalPrompt,
+            user_input: enhancedPrompt,
             reference_images: allRefImages.length > 0 ? allRefImages : undefined,
+            input_images: inputImages.length > 0 ? inputImages : undefined,
+            style_reference_images: styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+            variation_index: generateVariationIndex,
           });
           const responses = [res];
           allResults.push(res);
 
-          // Lưu result URL cho node tiếp theo
           if (responses[0]?.result_url) {
             nodeResults[execNode.id] = responses[0].result_url;
           }
 
-          // Update node → done + hiện results
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false, results: responses, lastPrompt: finalPrompt } } : n));
-          toast.success(`✅ Generate xong: ${responses.length} ảnh`);
+          toast.success(`✅ Generate xong`);
         } else if (execNode.type === 'video') {
           // Generate video - collect TẤT CẢ ảnh từ các node nối vào
           const videoImageUrls: string[] = [...refImages];

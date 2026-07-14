@@ -70,6 +70,9 @@ export async function generateImage(payload: {
   template_id?: string;
   user_input: string;
   reference_images?: string[];
+  input_images?: string[];
+  style_reference_images?: string[];
+  variation_index?: number;
 }): Promise<ImageGeneration> {
   const { data } = await api.post('/image-generations', payload);
   return data;
