@@ -147,8 +147,9 @@ function InputImageNode({ data }: InputImageNodeProps) {
               ))}
               <div
                 {...getRootProps()}
-                className="aspect-square rounded-lg flex items-center justify-center cursor-pointer transition"
+                className="nodrag aspect-square rounded-lg flex items-center justify-center cursor-pointer transition"
                 style={{ border: '1px dashed #333' }}
+                onPointerDown={e => e.stopPropagation()}
               >
                 <input {...getInputProps()} />
                 {uploading
@@ -162,11 +163,12 @@ function InputImageNode({ data }: InputImageNodeProps) {
           <div className="p-1.5 space-y-1.5">
             <div
               {...getRootProps()}
-              className={`rounded-xl p-4 text-center cursor-pointer transition-all`}
+              className="nodrag rounded-xl p-4 text-center cursor-pointer transition-all"
               style={{
                 border: isDragActive ? '1px solid #06b6d4' : '1px dashed #2a2a2a',
                 background: isDragActive ? '#06b6d408' : 'transparent',
               }}
+              onPointerDown={e => e.stopPropagation()}
             >
               <input {...getInputProps()} />
               {uploading ? (
