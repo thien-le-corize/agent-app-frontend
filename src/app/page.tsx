@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Eye, Download, X, Loader2, Sparkles, Plus, Search, Filter } from 'lucide-react';
 
@@ -26,6 +26,8 @@ interface ApiResponse {
   hasMore: boolean;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 export default function HomePage() {
   const [items, setItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,54 +35,58 @@ export default function HomePage() {
   const [offset, setOffset] = useState(0);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
   const [loadingPrompt, setLoadingPrompt] = useState(false);
+  const [fullPromptText, setFullPromptText] = useState('');
   const loaderRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
   const router = useRouter();
 
-  // Chuyển sang Image Tool với reference - lấy full prompt trước
-  const handleUseAsReference = async (item: WorkItem) => {
+  // Fetch full prompt khi mở lightbox
+  useEffect(() => {
+    if (selectedItem?.share_id) {
+      setFullPromptText(selectedItem.prompt_excerpt || '');
+      // Fetch full prompt
+      fetch(`${API_URL}/gallery/prompt?share_id=${selectedItem.share_id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.prompt) {
+            setFullPromptText(data.prompt);
+          }
+        })
+        .catch(err => console.error('Lỗi khi lấy prompt:', err));
+    }
+  }, [selectedItem]);
+
+  // Chuyển sang Image Tool với reference
+  const handleUseAsReference = () => {
+    if (!selectedItem) return;
     setLoadingPrompt(true);
     
-    let fullPrompt = item.prompt_excerpt || '';
-    
-    // Lấy full prompt từ API backend
-    if (item.share_id) {
-      try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        const res = await fetch(`${API_URL}/gallery/prompt?share_id=${item.share_id}`);
-        const data = await res.json();
-        if (data.prompt) {
-          fullPrompt = data.prompt;
-        }
-      } catch (error) {
-        console.error('Lỗi khi lấy prompt:', error);
-      }
-    }
-    
-    setLoadingPrompt(false);
-    setSelectedItem(null);
-    
     const params = new URLSearchParams({
-      ref: item.output_image_url,
-      prompt: fullPrompt,
+      ref: selectedItem.output_image_url,
+      prompt: fullPromptText || selectedItem.prompt_excerpt || '',
     });
+    
+    setSelectedItem(null);
+    setLoadingPrompt(false);
     router.push(`/image-tool?${params.toString()}`);
   };
 
-  const fetchImages = useCallback(async (currentOffset: number) => {
-    if (loading) return;
+  // Fetch images
+  const fetchImages = async (currentOffset: number) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const res = await fetch(
         `${API_URL}/gallery?limit=24&offset=${currentOffset}&sort=latest&model=gpt-image`
       );
       const data: ApiResponse = await res.json();
       
       if (currentOffset === 0) {
-        setItems(data.data);
+        setItems(data.data || []);
       } else {
-        setItems(prev => [...prev, ...data.data]);
+        setItems(prev => [...prev, ...(data.data || [])]);
       }
       
       setHasMore(data.hasMore);
@@ -89,8 +95,9 @@ export default function HomePage() {
       console.error('Lỗi khi tải ảnh:', error);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [loading]);
+  };
 
   // Tải lần đầu
   useEffect(() => {
@@ -99,21 +106,22 @@ export default function HomePage() {
 
   // Infinite scroll
   useEffect(() => {
+    const currentLoader = loaderRef.current;
+    if (!currentLoader) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
+        if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
           fetchImages(offset);
         }
       },
       { threshold: 0.1 }
     );
 
-    if (loaderRef.current) {
-      observer.observe(loaderRef.current);
-    }
+    observer.observe(currentLoader);
 
     return () => observer.disconnect();
-  }, [offset, hasMore, loading, fetchImages]);
+  }, [offset, hasMore]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -310,14 +318,14 @@ export default function HomePage() {
               </div>
 
               {/* Prompt */}
-              {selectedItem.prompt_excerpt && (
+              {(fullPromptText || selectedItem.prompt_excerpt) && (
                 <div className="mb-4">
                   <p className="text-xs font-medium mb-2 text-gray-400">Mô tả</p>
                   <div 
                     className="p-3 rounded-lg text-xs leading-relaxed max-h-[200px] overflow-y-auto text-gray-300"
                     style={{ background: '#1a1a1a' }}
                   >
-                    {selectedItem.prompt_excerpt}
+                    {fullPromptText || selectedItem.prompt_excerpt}
                   </div>
                 </div>
               )}
@@ -325,7 +333,7 @@ export default function HomePage() {
               {/* Hành động */}
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={() => handleUseAsReference(selectedItem)}
+                  onClick={handleUseAsReference}
                   disabled={loadingPrompt}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-70 text-white"
                   style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
