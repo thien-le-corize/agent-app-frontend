@@ -48,6 +48,7 @@ function ImageToolContent() {
   const [publishToExplore, setPublishToExplore] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [expandPrompt, setExpandPrompt] = useState(false);
 
   // Right panel state
   const [activeTab, setActiveTab] = useState<'library' | 'history' | 'saved'>('library');
@@ -344,7 +345,11 @@ function ImageToolContent() {
                 className="w-full h-28 px-3 py-2.5 rounded-lg text-sm resize-none outline-none transition"
                 style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
               />
-              <button className="absolute bottom-2 right-2 p-1.5 rounded hover:bg-white/10">
+              <button 
+                onClick={() => setExpandPrompt(true)}
+                className="absolute bottom-2 right-2 p-1.5 rounded hover:bg-white/10 transition"
+                title="Phóng to"
+              >
                 <Expand className="w-4 h-4 text-gray-500" />
               </button>
             </div>
@@ -629,6 +634,57 @@ function ImageToolContent() {
           )}
         </div>
       </div>
+
+      {/* Expand Prompt Modal */}
+      {expandPrompt && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.9)' }}
+        >
+          <div 
+            className="w-full max-w-4xl rounded-xl overflow-hidden"
+            style={{ background: '#111', border: '1px solid #333' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #333' }}>
+              <h3 className="text-lg font-semibold text-white">Mô tả ảnh</h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">{prompt.length}/20000</span>
+                <button 
+                  onClick={() => setExpandPrompt(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Mô tả chi tiết hình ảnh bạn muốn tạo..."
+                className="w-full h-[60vh] px-4 py-3 rounded-lg text-sm outline-none resize-none"
+                style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-3 px-5 py-4" style={{ borderTop: '1px solid #333' }}>
+              <button
+                onClick={() => setExpandPrompt(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => setExpandPrompt(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium text-white transition"
+                style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
+              >
+                Xong
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
