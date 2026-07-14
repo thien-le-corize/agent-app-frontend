@@ -167,6 +167,15 @@ function appendUnique(target: string[], urls: string[]) {
   }
 }
 
+const GENERATE_VARIATION_PRESETS = [
+  'Hero layout: place the main subject large on the right, promotional headline and offer on the left, strong medical-blue CTA band at the bottom.',
+  'Magazine poster layout: place the main subject centered, use oversized discount typography behind/around the subject, with floating dental icons and clean white-blue negative space.',
+  'Split composition: use a diagonal or curved divide, subject on one side, dental treatment/product visual on the other side, with compact benefit badges.',
+  'Premium clinic layout: minimal white space, elegant typography, small brand header, subject cropped waist-up, treatment visual in a circular frame.',
+  'Dynamic social ad layout: bold sticker-like sale badge, layered cards, motion accents, subject slightly off-center, stronger contrast and energetic composition.',
+  'Trust-focused layout: subject near testimonial/benefit blocks, clear before-after/treatment module, restrained colors, clean healthcare credibility style.',
+];
+
 let nodeId = 100;
 function getNextId(type: string) {
   nodeId += 1;
@@ -535,6 +544,7 @@ function WorkflowCanvas() {
           }
 
           const generateVariationIndex = generateNodes.findIndex((node) => node.id === execNode.id) + 1;
+          const variationPreset = GENERATE_VARIATION_PRESETS[(generateVariationIndex - 1) % GENERATE_VARIATION_PRESETS.length];
 
           // Build enhanced prompt với vai trò ảnh rõ ràng
           let enhancedPrompt = finalPrompt;
@@ -547,7 +557,7 @@ function WorkflowCanvas() {
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
           }
-          enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: Create a distinct composition variant while following the same brief. Change layout balance, subject placement, typography arrangement, or decorative elements so this output is not identical to other generator nodes.]`;
+          enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
 
           console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
           console.log(`[Flow] Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
@@ -781,7 +791,15 @@ function WorkflowCanvas() {
           return { ...node, data: { prompt, onChange: setPrompt, onDelete: deleteHandler } };
         }
         if (node.type === 'generate') {
-          return { ...node, data: { generating, results, onGenerate: (n: number) => handleRunFlowRef.current(n), onRegenerate: (i: number, p?: string) => handleRegenerateRef.current(i, p), canGenerate: !!selectedBrand && prompt.trim().length > 0, onDelete: deleteHandler } };
+          return { ...node, data: {
+            ...node.data,
+            generating: Boolean((node.data as any)?.generating),
+            results: (node.data as any)?.results || [],
+            onGenerate: (n: number) => handleRunFlowRef.current(n),
+            onRegenerate: (i: number, p?: string) => handleRegenerateRef.current(i, p),
+            canGenerate: !!selectedBrand && prompt.trim().length > 0,
+            onDelete: deleteHandler
+          } };
         }
         if (node.type === 'video') {
           return { ...node, data: { prompt: videoPrompt, imageUrl: results.find(r => r.status === 'completed')?.result_url, generating: generatingVideo, result: videoResult, onGenerate: (vp: string) => { setVideoPrompt(vp); handleGenerateVideoRef.current(); }, canGenerate: true, onDelete: deleteHandler } };
