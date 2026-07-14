@@ -18,7 +18,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode } from '@/components/nodes';
+import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
 import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt } from '@/lib/api';
@@ -35,29 +35,41 @@ const CONNECTION_RULES: Record<string, string[]> = {
   template: ['prompt', 'generate', 'aiprompt'],
   references: ['prompt', 'generate', 'image', 'aiprompt'],
   image: ['prompt', 'generate', 'image', 'video', 'aiprompt'],
+  input: ['prompt', 'generate', 'aiprompt'],
   prompt: ['generate', 'video', 'prompt'],
   generate: ['video', 'generate', 'image', 'prompt'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
   aiprompt: ['generate', 'prompt', 'video'],
 };
 
 const initialNodes: Node[] = [
-  // Brand Node - chọn thương hiệu
-  { id: 'brand-1', type: 'brand', position: { x: 50, y: 50 }, data: {} },
-  // Reference Node - upload hình tham khảo
-  { id: 'references-1', type: 'references', position: { x: 50, y: 250 }, data: {} },
-  // Prompt Builder - nhập mô tả, style → tạo prompt
-  { id: 'prompt-1', type: 'prompt', position: { x: 400, y: 150 }, data: {} },
-  // Generate Image - tạo ảnh từ prompt
-  { id: 'generate-1', type: 'generate', position: { x: 750, y: 150 }, data: {} },
+  { id: 'brand-1', type: 'brand', position: { x: 40, y: 40 }, data: {} },
+  { id: 'product-1', type: 'input', position: { x: 40, y: 205 }, data: { inputType: 'product', label: 'Sản phẩm' } },
+  { id: 'element-1', type: 'input', position: { x: 315, y: 40 }, data: { inputType: 'element', label: 'Element / chips' } },
+  { id: 'references-1', type: 'references', position: { x: 315, y: 245 }, data: {} },
+  { id: 'model-1', type: 'input', position: { x: 40, y: 430 }, data: { inputType: 'subject', label: 'Người mẫu' } },
+  { id: 'prompt-1', type: 'prompt', position: { x: 315, y: 520 }, data: {} },
+  { id: 'generate-1', type: 'generate', position: { x: 700, y: 185 }, data: {} },
+  { id: 'generate-2', type: 'generate', position: { x: 700, y: 555 }, data: {} },
 ];
 
 const initialEdges: Edge[] = [
-  { id: 'e1', source: 'brand-1', target: 'prompt-1', animated: true },
-  { id: 'e2', source: 'references-1', target: 'prompt-1', animated: true },
-  { id: 'e3', source: 'prompt-1', target: 'generate-1', animated: true },
+  { id: 'e-brand-prompt', source: 'brand-1', target: 'prompt-1', animated: true },
+  { id: 'e-product-prompt', source: 'product-1', target: 'prompt-1', animated: true },
+  { id: 'e-element-prompt', source: 'element-1', target: 'prompt-1', animated: true },
+  { id: 'e-reference-prompt', source: 'references-1', target: 'prompt-1', animated: true },
+  { id: 'e-model-prompt', source: 'model-1', target: 'prompt-1', animated: true },
+  { id: 'e-prompt-generate-1', source: 'prompt-1', target: 'generate-1', animated: true },
+  { id: 'e-prompt-generate-2', source: 'prompt-1', target: 'generate-2', animated: true },
 ];
+
+function getInitialWorkflow() {
+  return {
+    nodes: initialNodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
+    edges: initialEdges.map((edge) => ({ ...edge })),
+  };
+}
 
 // ═══════════════════════════════════════════════
 // TOPOLOGICAL SORT - Chạy flow theo thứ tự DAG
@@ -132,6 +144,33 @@ function topologicalSort(execNodes: Node[], edges: Edge[], allNodes: Node[]): No
   return result;
 }
 
+function getUpstreamNodes(targetId: string, edges: Edge[], allNodes: Node[]): Node[] {
+  const byId = new Map(allNodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  const result: Node[] = [];
+
+  function visit(nodeId: string) {
+    const incomingEdges = edges.filter((edge) => edge.target === nodeId);
+    for (const edge of incomingEdges) {
+      if (visited.has(edge.source)) continue;
+      visited.add(edge.source);
+      const sourceNode = byId.get(edge.source);
+      if (!sourceNode) continue;
+      result.push(sourceNode);
+      visit(sourceNode.id);
+    }
+  }
+
+  visit(targetId);
+  return result;
+}
+
+function appendUnique(target: string[], urls: string[]) {
+  for (const url of urls) {
+    if (url && !target.includes(url)) target.push(url);
+  }
+}
+
 let nodeId = 100;
 function getNextId(type: string) {
   nodeId += 1;
@@ -151,6 +190,9 @@ function WorkflowCanvas() {
   const [referenceLibraryUrls, setReferenceLibraryUrls] = useState<string[]>([]);
   const [imageNodeFiles, setImageNodeFiles] = useState<Record<string, File[]>>({});
   const [imageNodeLibraryUrls, setImageNodeLibraryUrls] = useState<Record<string, string[]>>({});
+  const [inputNodeFiles, setInputNodeFiles] = useState<Record<string, File[]>>({});
+  const [inputNodeLibraryUrls, setInputNodeLibraryUrls] = useState<Record<string, string[]>>({});
+  const [inputNodeTypes, setInputNodeTypes] = useState<Record<string, string>>({});
   const [prompt, setPrompt] = useState('');
   const [sidePanel, setSidePanel] = useState<'brand' | 'template' | null>(null);
 
@@ -181,8 +223,9 @@ function WorkflowCanvas() {
   // Edit brand modal
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const defaultWorkflow = useMemo(() => getInitialWorkflow(), []);
+  const [nodes, setNodes, onNodesChange] = useNodesState(defaultWorkflow.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(defaultWorkflow.edges);
 
   // Load saved workflow
   useEffect(() => {
@@ -223,6 +266,24 @@ function WorkflowCanvas() {
     setContextMenu(null);
   }, [setNodes, setEdges]);
 
+  const resetToDefaultWorkflow = useCallback(() => {
+    const workflow = getInitialWorkflow();
+    setNodes(workflow.nodes);
+    setEdges(workflow.edges);
+    setReferenceFiles([]);
+    setReferenceLibraryUrls([]);
+    setImageNodeFiles({});
+    setImageNodeLibraryUrls({});
+    setInputNodeFiles({});
+    setInputNodeLibraryUrls({});
+    setInputNodeTypes({});
+    setPrompt('');
+    setResults([]);
+    setVideoResult(null);
+    localStorage.removeItem('workflow_draft');
+    toast.success('Đã tạo workflow mặc định');
+  }, [setNodes, setEdges]);
+
   const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
@@ -260,6 +321,12 @@ function WorkflowCanvas() {
   imageNodeFilesRef.current = imageNodeFiles;
   const imageNodeLibraryUrlsRef = useRef(imageNodeLibraryUrls);
   imageNodeLibraryUrlsRef.current = imageNodeLibraryUrls;
+  const inputNodeFilesRef = useRef(inputNodeFiles);
+  inputNodeFilesRef.current = inputNodeFiles;
+  const inputNodeLibraryUrlsRef = useRef(inputNodeLibraryUrls);
+  inputNodeLibraryUrlsRef.current = inputNodeLibraryUrls;
+  const inputNodeTypesRef = useRef(inputNodeTypes);
+  inputNodeTypesRef.current = inputNodeTypes;
 
   const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
@@ -271,6 +338,9 @@ function WorkflowCanvas() {
     const currentImageFiles = imageNodeFilesRef.current;
     const referenceLibraryUrls = referenceLibraryUrlsRef.current;
     const imageNodeLibraryUrls = imageNodeLibraryUrlsRef.current;
+    const inputNodeFiles = inputNodeFilesRef.current;
+    const inputNodeLibraryUrls = inputNodeLibraryUrlsRef.current;
+    const inputNodeTypes = inputNodeTypesRef.current;
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
@@ -316,19 +386,9 @@ function WorkflowCanvas() {
         // Update node status → running
         setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'running', generating: true } } : n));
 
-        // Tìm inputs cho node này (nodes nối vào) — 2 levels deep
-        const inputEdges = edges.filter((e) => e.target === execNode.id);
-        const inputNodes = inputEdges.map((e) => nodes.find((n) => n.id === e.source)).filter(Boolean);
-
-        // Cũng tìm inputs gián tiếp (inputs của input nodes - cho case Image → Prompt → Generate)
-        const indirectInputs: any[] = [];
-        for (const inp of inputNodes) {
-          if (!inp) continue;
-          const secondLevelEdges = edges.filter((e) => e.target === inp.id);
-          const secondLevelNodes = secondLevelEdges.map((e) => nodes.find((n) => n.id === e.source)).filter(Boolean);
-          indirectInputs.push(...secondLevelNodes);
-        }
-        const allInputNodes = [...inputNodes, ...indirectInputs];
+        // Tìm toàn bộ inputs upstream cho node này.
+        // Hỗ trợ nhiều ảnh đi qua nhiều node trung gian: Image/Input/References → ... → Generate.
+        const allInputNodes = getUpstreamNodes(execNode.id, edges, nodes);
 
         // Collect data từ input nodes
         let nodePrompt = currentPrompt;
@@ -360,25 +420,35 @@ function WorkflowCanvas() {
             const files = currentImageFiles[inp.id] || [];
             const libUrls = imageNodeLibraryUrls[inp.id] || [];
             console.log(`[Flow] Image node ${inp.id}: ${files.length} files, ${libUrls.length} library URLs`);
-            // Library URLs đã có trên server, dùng thẳng
-            refImages.push(...libUrls);
+            appendUnique(refImages, libUrls);
             for (const file of files) {
               const { url } = await uploadFile(file);
-              refImages.push(url);
+              appendUnique(refImages, [url]);
               console.log(`[Flow] Uploaded image: ${url.slice(0, 60)}`);
+            }
+          } else if (inp.type === 'input') {
+            // Input Image node — ghép trực tiếp vào output
+            const files = inputNodeFiles[inp.id] || [];
+            const libUrls = inputNodeLibraryUrls[inp.id] || [];
+            const itype = inputNodeTypes[inp.id] || 'subject';
+            console.log(`[Flow] Input node ${inp.id} (${itype}): ${files.length} files, ${libUrls.length} library URLs`);
+            appendUnique(refImages, libUrls);
+            for (const file of files) {
+              const { url } = await uploadFile(file);
+              appendUnique(refImages, [url]);
             }
           } else if (inp.type === 'references') {
             // Library URLs đã có trên server
             const libUrls = referenceLibraryUrls || [];
-            refImages.push(...libUrls);
+            appendUnique(refImages, libUrls);
             for (const file of currentFiles) {
               const { url } = await uploadFile(file);
-              refImages.push(url);
+              appendUnique(refImages, [url]);
             }
           } else if (inp.type === 'generate') {
             // Output từ node generate trước → dùng làm input image
             if (nodeResults[inp.id]) {
-              refImages.push(nodeResults[inp.id]);
+              appendUnique(refImages, [nodeResults[inp.id]]);
             }
           }
         }
@@ -449,7 +519,7 @@ function WorkflowCanvas() {
             if (inp.type === 'aiprompt' && nodeResults[inp.id + '_refs']) {
               try {
                 const aipromptRefs = JSON.parse(nodeResults[inp.id + '_refs']);
-                allRefImages = [...allRefImages, ...aipromptRefs];
+                appendUnique(allRefImages, aipromptRefs);
               } catch {}
             }
           }
@@ -474,7 +544,7 @@ function WorkflowCanvas() {
           }
 
           // Update node → done + hiện results
-          setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false, results: responses } } : n));
+          setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false, results: responses, lastPrompt: finalPrompt } } : n));
           toast.success(`✅ Generate xong: ${responses.length} ảnh`);
         } else if (execNode.type === 'video') {
           // Generate video - collect TẤT CẢ ảnh từ các node nối vào
@@ -667,13 +737,26 @@ function WorkflowCanvas() {
           return { ...node, data: { 
             files: imageNodeFiles[node.id] || [], 
             libraryUrls: imageNodeLibraryUrls[node.id] || [],
+            label: (node.data as any)?.label,
             onFilesAdd: (f: File[]) => setImageNodeFiles(prev => ({ ...prev, [node.id]: [...(prev[node.id] || []), ...f] })), 
             onFileRemove: (i: number) => setImageNodeFiles(prev => ({ ...prev, [node.id]: (prev[node.id] || []).filter((_, idx) => idx !== i) })),
             onLibraryUrlsChange: (urls: string[]) => setImageNodeLibraryUrls(prev => ({ ...prev, [node.id]: urls })),
             onDelete: deleteHandler 
           } };
         }
-        if (node.type === 'prompt') {
+        if (node.type === 'input') {
+          return { ...node, data: {
+            files: inputNodeFiles[node.id] || [],
+            libraryUrls: inputNodeLibraryUrls[node.id] || [],
+            inputType: inputNodeTypes[node.id] || (node.data as any)?.inputType || 'subject',
+            label: (node.data as any)?.label,
+            onFilesAdd: (f: File[]) => setInputNodeFiles(prev => ({ ...prev, [node.id]: [...(prev[node.id] || []), ...f] })),
+            onFileRemove: (i: number) => setInputNodeFiles(prev => ({ ...prev, [node.id]: (prev[node.id] || []).filter((_, idx) => idx !== i) })),
+            onLibraryUrlsChange: (urls: string[]) => setInputNodeLibraryUrls(prev => ({ ...prev, [node.id]: urls })),
+            onInputTypeChange: (t: string) => setInputNodeTypes(prev => ({ ...prev, [node.id]: t })),
+            onDelete: deleteHandler,
+          } };
+        }        if (node.type === 'prompt') {
           return { ...node, data: { prompt, onChange: setPrompt, onDelete: deleteHandler } };
         }
         if (node.type === 'generate') {
@@ -690,13 +773,14 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, inputNodeTypes, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
     template: TemplateNode,
     references: ReferenceNode,
     image: ImageNode,
+    input: InputImageNode,
     prompt: PromptNode,
     generate: GenerateNode,
     video: VideoNode,
@@ -731,7 +815,7 @@ function WorkflowCanvas() {
                 Templates
               </button>
               <button
-                onClick={() => { if (confirm('Tạo workflow mới?')) { setNodes([]); setEdges([]); toast.success('New workflow'); } }}
+                onClick={() => { if (confirm('Tạo workflow mặc định mới?')) resetToDefaultWorkflow(); }}
                 className="px-2.5 py-1.5 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition"
               >
                 New

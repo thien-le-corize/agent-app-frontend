@@ -8,3 +8,4 @@ export { default as GenerateNode } from './GenerateNode';
 export { default as VideoNode } from './VideoNode';
 export { default as TextNode } from './TextNode';
 export { default as AIPromptNode } from './AIPromptNode';
+export { default as InputImageNode } from './InputImageNode';
