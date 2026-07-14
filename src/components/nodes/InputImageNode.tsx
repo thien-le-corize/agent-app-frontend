@@ -2,30 +2,20 @@
 
 import { useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { ImagePlus, X, Upload, Plus, BookImage, Layers } from 'lucide-react';
+import { ImagePlus, X, Upload, Plus, BookImage } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import NodeWrapper from './NodeWrapper';
 import ReferenceLibraryModal from '../ReferenceLibraryModal';
 import { uploadReferenceImage } from '@/lib/api';
 
-// Các loại input image
-const INPUT_TYPES = [
-  { value: 'subject',  label: 'Chủ thể',    color: '#3b82f6', desc: 'Người, sản phẩm, vật thể cần xuất hiện trong ảnh' },
-  { value: 'face',     label: 'Khuôn mặt',  color: '#a855f7', desc: 'Ảnh khuôn mặt để giữ nhận dạng' },
-  { value: 'product',  label: 'Sản phẩm',   color: '#f97316', desc: 'Ảnh sản phẩm cần ghép vào poster' },
-  { value: 'element',  label: 'Thành phần', color: '#22c55e', desc: 'Ảnh element phụ (nền, vật trang trí...)' },
-];
-
 interface InputImageNodeProps {
   data: {
     files?: File[];
     libraryUrls?: string[];
-    inputType?: string;
     label?: string;
     onFilesAdd?: (files: File[]) => void;
     onFileRemove?: (index: number) => void;
     onLibraryUrlsChange?: (urls: string[]) => void;
-    onInputTypeChange?: (type: string) => void;
     onDelete?: () => void;
   };
 }
@@ -34,20 +24,15 @@ function InputImageNode({ data }: InputImageNodeProps) {
   const {
     files = [],
     libraryUrls = [],
-    inputType = 'subject',
     label,
     onFilesAdd,
     onFileRemove,
     onLibraryUrlsChange,
-    onInputTypeChange,
     onDelete,
   } = data;
 
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [showTypeMenu, setShowTypeMenu] = useState(false);
-
-  const currentType = INPUT_TYPES.find(t => t.value === inputType) || INPUT_TYPES[0];
 
   const onDrop = useCallback(async (accepted: File[]) => {
     setUploading(true);
@@ -85,7 +70,7 @@ function InputImageNode({ data }: InputImageNodeProps) {
         style={{
           width: 240,
           background: '#141414',
-          border: `1px solid ${currentType.color}33`,
+          border: '1px solid #06b6d433',
         }}
       >
         {/* Header */}
@@ -93,17 +78,17 @@ function InputImageNode({ data }: InputImageNodeProps) {
           className="node-header"
           style={{
             background: '#1a1a1a',
-            borderBottom: `1px solid ${currentType.color}22`,
+            borderBottom: '1px solid #06b6d422',
             padding: '8px 10px',
           }}
         >
-          <ImagePlus className="w-3.5 h-3.5" style={{ color: currentType.color }} />
-          <span className="text-gray-200 font-semibold text-[11px]">{label || 'Input Image'}</span>
+          <ImagePlus className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-gray-200 font-semibold text-[11px]">{label || 'Ảnh đầu vào'}</span>
           <div className="flex items-center gap-1.5 ml-auto">
             {totalCount > 0 && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
-                style={{ background: `${currentType.color}18`, color: currentType.color }}
+                style={{ background: '#06b6d418', color: '#06b6d4' }}
               >
                 {totalCount}
               </span>
@@ -119,46 +104,6 @@ function InputImageNode({ data }: InputImageNodeProps) {
           </div>
         </div>
 
-        {/* Type selector */}
-        <div className="px-2.5 pt-2 pb-1 relative">
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={() => setShowTypeMenu(v => !v)}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition hover:bg-white/5"
-            style={{
-              background: `${currentType.color}10`,
-              border: `1px solid ${currentType.color}30`,
-              color: currentType.color,
-            }}
-          >
-            <Layers className="w-3 h-3" />
-            <span className="flex-1 text-left">{currentType.label}</span>
-            <span className="text-[9px] text-gray-600">▾</span>
-          </button>
-
-          {showTypeMenu && (
-            <div
-              className="absolute left-2.5 right-2.5 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-10"
-              style={{ background: '#1e1e1e', border: '1px solid #333' }}
-            >
-              {INPUT_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  onPointerDown={e => e.stopPropagation()}
-                  onClick={() => { onInputTypeChange?.(t.value); setShowTypeMenu(false); }}
-                  className="w-full flex items-start gap-2.5 px-3 py-2 hover:bg-white/5 transition text-left"
-                >
-                  <div className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ background: t.color }} />
-                  <div>
-                    <p className="text-[11px] font-medium text-white">{t.label}</p>
-                    <p className="text-[9px] text-gray-500">{t.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Images */}
         {totalCount > 0 ? (
           <div className="p-1.5">
@@ -167,12 +112,12 @@ function InputImageNode({ data }: InputImageNodeProps) {
                 <div
                   key={`lib-${i}`}
                   className="relative group rounded-lg overflow-hidden aspect-square"
-                  style={{ border: `1px solid ${currentType.color}33` }}
+                  style={{ border: '1px solid #06b6d433' }}
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <div
                     className="absolute top-1 left-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
-                    style={{ background: currentType.color }}
+                    style={{ background: '#06b6d4' }}
                   >
                     <BookImage className="w-2 h-2 text-white" />
                   </div>
@@ -208,7 +153,7 @@ function InputImageNode({ data }: InputImageNodeProps) {
               >
                 <input {...getInputProps()} />
                 {uploading
-                  ? <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: `${currentType.color} transparent` }} />
+                  ? <div className="w-3 h-3 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
                   : <Plus className="w-4 h-4 text-gray-600" />
                 }
               </div>
@@ -220,14 +165,14 @@ function InputImageNode({ data }: InputImageNodeProps) {
               {...getRootProps()}
               className={`rounded-xl p-4 text-center cursor-pointer transition-all`}
               style={{
-                border: isDragActive ? `1px solid ${currentType.color}` : '1px dashed #2a2a2a',
-                background: isDragActive ? `${currentType.color}08` : 'transparent',
+                border: isDragActive ? '1px solid #06b6d4' : '1px dashed #2a2a2a',
+                background: isDragActive ? '#06b6d408' : 'transparent',
               }}
             >
               <input {...getInputProps()} />
-              <Upload className="w-5 h-5 mx-auto mb-1.5" style={{ color: isDragActive ? currentType.color : '#4b5563' }} />
+              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${isDragActive ? 'text-cyan-400' : 'text-gray-600'}`} />
               <p className="text-[10px] text-gray-500">Upload & lưu vào thư viện</p>
-              <p className="text-[9px] text-gray-600 mt-0.5">{currentType.desc}</p>
+              <p className="text-[9px] text-gray-600 mt-0.5">Có thể thêm nhiều ảnh sản phẩm, người mẫu, element...</p>
             </div>
             <button
               onPointerDown={e => e.stopPropagation()}
@@ -244,12 +189,12 @@ function InputImageNode({ data }: InputImageNodeProps) {
         {/* Hint */}
         <div className="px-2.5 pb-2">
           <p className="text-[9px] text-gray-600 text-center">
-            Ảnh này sẽ được <span style={{ color: currentType.color }}>ghép trực tiếp</span> vào output
+            Tất cả ảnh sẽ được <span className="text-cyan-400">ghép trực tiếp</span> vào output
           </p>
         </div>
 
-        <Handle type="target" position={Position.Left} style={{ background: currentType.color }} />
-        <Handle type="source" position={Position.Right} style={{ background: currentType.color }} />
+        <Handle type="target" position={Position.Left} style={{ background: '#06b6d4' }} />
+        <Handle type="source" position={Position.Right} style={{ background: '#06b6d4' }} />
       </div>
 
       {showLibrary && (

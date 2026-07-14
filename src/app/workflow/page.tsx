@@ -45,21 +45,17 @@ const CONNECTION_RULES: Record<string, string[]> = {
 
 const initialNodes: Node[] = [
   { id: 'brand-1', type: 'brand', position: { x: 40, y: 40 }, data: {} },
-  { id: 'product-1', type: 'input', position: { x: 40, y: 205 }, data: { inputType: 'product', label: 'Sản phẩm' } },
-  { id: 'element-1', type: 'input', position: { x: 315, y: 40 }, data: { inputType: 'element', label: 'Element / chips' } },
-  { id: 'references-1', type: 'references', position: { x: 315, y: 245 }, data: {} },
-  { id: 'model-1', type: 'input', position: { x: 40, y: 430 }, data: { inputType: 'subject', label: 'Người mẫu' } },
-  { id: 'prompt-1', type: 'prompt', position: { x: 315, y: 520 }, data: {} },
-  { id: 'generate-1', type: 'generate', position: { x: 700, y: 185 }, data: {} },
-  { id: 'generate-2', type: 'generate', position: { x: 700, y: 555 }, data: {} },
+  { id: 'input-1', type: 'input', position: { x: 40, y: 255 }, data: { label: 'Ảnh đầu vào' } },
+  { id: 'references-1', type: 'references', position: { x: 360, y: 135 }, data: {} },
+  { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 430 }, data: {} },
+  { id: 'generate-1', type: 'generate', position: { x: 745, y: 180 }, data: {} },
+  { id: 'generate-2', type: 'generate', position: { x: 745, y: 545 }, data: {} },
 ];
 
 const initialEdges: Edge[] = [
   { id: 'e-brand-prompt', source: 'brand-1', target: 'prompt-1', animated: true },
-  { id: 'e-product-prompt', source: 'product-1', target: 'prompt-1', animated: true },
-  { id: 'e-element-prompt', source: 'element-1', target: 'prompt-1', animated: true },
+  { id: 'e-input-prompt', source: 'input-1', target: 'prompt-1', animated: true },
   { id: 'e-reference-prompt', source: 'references-1', target: 'prompt-1', animated: true },
-  { id: 'e-model-prompt', source: 'model-1', target: 'prompt-1', animated: true },
   { id: 'e-prompt-generate-1', source: 'prompt-1', target: 'generate-1', animated: true },
   { id: 'e-prompt-generate-2', source: 'prompt-1', target: 'generate-2', animated: true },
 ];
@@ -192,7 +188,6 @@ function WorkflowCanvas() {
   const [imageNodeLibraryUrls, setImageNodeLibraryUrls] = useState<Record<string, string[]>>({});
   const [inputNodeFiles, setInputNodeFiles] = useState<Record<string, File[]>>({});
   const [inputNodeLibraryUrls, setInputNodeLibraryUrls] = useState<Record<string, string[]>>({});
-  const [inputNodeTypes, setInputNodeTypes] = useState<Record<string, string>>({});
   const [prompt, setPrompt] = useState('');
   const [sidePanel, setSidePanel] = useState<'brand' | 'template' | null>(null);
 
@@ -234,6 +229,17 @@ function WorkflowCanvas() {
       if (saved) {
         const { nodes: savedNodes, edges: savedEdges } = JSON.parse(saved);
         if (savedNodes?.length > 0) {
+          const hasOldDefaultInputSplit =
+            savedNodes.some((node: Node) => node.id === 'product-1') &&
+            savedNodes.some((node: Node) => node.id === 'element-1') &&
+            savedNodes.some((node: Node) => node.id === 'model-1');
+          if (hasOldDefaultInputSplit) {
+            const workflow = getInitialWorkflow();
+            setNodes(workflow.nodes);
+            setEdges(workflow.edges);
+            localStorage.setItem('workflow_draft', JSON.stringify({ ...workflow, savedAt: new Date().toISOString() }));
+            return;
+          }
           setNodes(savedNodes);
           setEdges(savedEdges || []);
         }
@@ -276,7 +282,6 @@ function WorkflowCanvas() {
     setImageNodeLibraryUrls({});
     setInputNodeFiles({});
     setInputNodeLibraryUrls({});
-    setInputNodeTypes({});
     setPrompt('');
     setResults([]);
     setVideoResult(null);
@@ -325,8 +330,6 @@ function WorkflowCanvas() {
   inputNodeFilesRef.current = inputNodeFiles;
   const inputNodeLibraryUrlsRef = useRef(inputNodeLibraryUrls);
   inputNodeLibraryUrlsRef.current = inputNodeLibraryUrls;
-  const inputNodeTypesRef = useRef(inputNodeTypes);
-  inputNodeTypesRef.current = inputNodeTypes;
 
   const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
@@ -340,7 +343,6 @@ function WorkflowCanvas() {
     const imageNodeLibraryUrls = imageNodeLibraryUrlsRef.current;
     const inputNodeFiles = inputNodeFilesRef.current;
     const inputNodeLibraryUrls = inputNodeLibraryUrlsRef.current;
-    const inputNodeTypes = inputNodeTypesRef.current;
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
@@ -430,8 +432,7 @@ function WorkflowCanvas() {
             // Input Image node — ghép trực tiếp vào output
             const files = inputNodeFiles[inp.id] || [];
             const libUrls = inputNodeLibraryUrls[inp.id] || [];
-            const itype = inputNodeTypes[inp.id] || 'subject';
-            console.log(`[Flow] Input node ${inp.id} (${itype}): ${files.length} files, ${libUrls.length} library URLs`);
+            console.log(`[Flow] Input node ${inp.id}: ${files.length} files, ${libUrls.length} library URLs`);
             appendUnique(refImages, libUrls);
             for (const file of files) {
               const { url } = await uploadFile(file);
@@ -748,12 +749,10 @@ function WorkflowCanvas() {
           return { ...node, data: {
             files: inputNodeFiles[node.id] || [],
             libraryUrls: inputNodeLibraryUrls[node.id] || [],
-            inputType: inputNodeTypes[node.id] || (node.data as any)?.inputType || 'subject',
             label: (node.data as any)?.label,
             onFilesAdd: (f: File[]) => setInputNodeFiles(prev => ({ ...prev, [node.id]: [...(prev[node.id] || []), ...f] })),
             onFileRemove: (i: number) => setInputNodeFiles(prev => ({ ...prev, [node.id]: (prev[node.id] || []).filter((_, idx) => idx !== i) })),
             onLibraryUrlsChange: (urls: string[]) => setInputNodeLibraryUrls(prev => ({ ...prev, [node.id]: urls })),
-            onInputTypeChange: (t: string) => setInputNodeTypes(prev => ({ ...prev, [node.id]: t })),
             onDelete: deleteHandler,
           } };
         }        if (node.type === 'prompt') {
@@ -773,7 +772,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, inputNodeTypes, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
