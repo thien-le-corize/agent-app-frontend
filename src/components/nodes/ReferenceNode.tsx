@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { ImageIcon, X, Upload, Plus, BookImage } from 'lucide-react';
+import { ImageIcon, X, Upload, Plus, BookImage, Wand2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import NodeWrapper from './NodeWrapper';
 import ReferenceLibraryModal from '../ReferenceLibraryModal';
@@ -16,12 +16,14 @@ interface ReferenceNodeProps {
     onFilesAdd?: (files: File[]) => void;
     onFileRemove?: (index: number) => void;
     onLibraryUrlsChange?: (urls: string[]) => void;
+    onAnalyze?: (urls: string[]) => void | Promise<void>;
+    analyzing?: boolean;
     onDelete?: () => void;
   };
 }
 
 function ReferenceNode({ data }: ReferenceNodeProps) {
-  const { files = [], libraryUrls = [], onFilesAdd, onFileRemove, onLibraryUrlsChange, onDelete } = data;
+  const { files = [], libraryUrls = [], onFilesAdd, onFileRemove, onLibraryUrlsChange, onAnalyze, analyzing, onDelete } = data;
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -35,14 +37,16 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
         uploadedUrls.push(res.url);
       }
       // Thêm vào libraryUrls của node
-      onLibraryUrlsChange?.([...libraryUrls, ...uploadedUrls].filter((url, index, urls) => urls.indexOf(url) === index));
+      const nextUrls = [...libraryUrls, ...uploadedUrls].filter((url, index, urls) => urls.indexOf(url) === index);
+      onLibraryUrlsChange?.(nextUrls);
+      onAnalyze?.(nextUrls);
     } catch {
       // fallback: chỉ add file local
       onFilesAdd?.(accepted);
     } finally {
       setUploading(false);
     }
-  }, [libraryUrls, onFilesAdd, onLibraryUrlsChange]);
+  }, [libraryUrls, onAnalyze, onFilesAdd, onLibraryUrlsChange]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -87,6 +91,26 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
             </button>
           </div>
         </div>
+
+        {totalCount > 0 && (
+          <div className="px-1.5 pt-1.5">
+            <button
+              type="button"
+              onPointerDown={e => e.stopPropagation()}
+              onClick={() => onAnalyze?.(libraryUrls)}
+              disabled={analyzing || libraryUrls.length === 0}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] font-medium text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Quét text, bố cục, màu sắc từ ảnh tham khảo để tạo prompt"
+            >
+              {analyzing ? (
+                <div className="h-3 w-3 rounded-full border-2 border-amber-300 border-t-transparent animate-spin" />
+              ) : (
+                <Wand2 className="h-3 w-3" />
+              )}
+              {analyzing ? 'Đang quét prompt...' : 'Quét prompt'}
+            </button>
+          </div>
+        )}
 
         {/* Images grid */}
         {allUrls.length > 0 ? (
@@ -180,7 +204,10 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
       {showLibrary && (
         <ReferenceLibraryModal
           selectedUrls={libraryUrls}
-          onSelect={(urls) => onLibraryUrlsChange?.(urls)}
+          onSelect={(urls) => {
+            onLibraryUrlsChange?.(urls);
+            onAnalyze?.(urls);
+          }}
           onClose={() => setShowLibrary(false)}
         />
       )}

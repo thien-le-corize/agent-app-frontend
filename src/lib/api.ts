@@ -93,6 +93,14 @@ export async function generateAIPrompt(payload: {
   return data;
 }
 
+export async function analyzeReferencePrompt(payload: {
+  reference_image_urls: string[];
+  mode?: 'replace_subject' | 'replace_text' | 'redesign';
+}): Promise<{ prompt: string }> {
+  const { data } = await api.post('/image-generations/analyze-reference-prompt', payload);
+  return data;
+}
+
 export async function getImageGenerations(params?: {
   brand_id?: string;
   status?: string;

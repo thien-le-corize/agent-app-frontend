@@ -21,7 +21,7 @@ import 'reactflow/dist/style.css';
 import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt, analyzeReferencePrompt } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -201,6 +201,7 @@ function WorkflowCanvas() {
   const [inputNodeFiles, setInputNodeFiles] = useState<Record<string, File[]>>({});
   const [inputNodeLibraryUrls, setInputNodeLibraryUrls] = useState<Record<string, string[]>>({});
   const [prompt, setPrompt] = useState('');
+  const [analyzingReferencePrompt, setAnalyzingReferencePrompt] = useState(false);
   const [sidePanel, setSidePanel] = useState<'brand' | 'template' | null>(null);
 
   // Generate state
@@ -746,6 +747,27 @@ function WorkflowCanvas() {
     setNodes((nds) => nds.concat({ id: getNextId(type), type, position, data: {} }));
   }, [screenToFlowPosition, setNodes]);
 
+  const handleAnalyzeReferencePrompt = useCallback(async (urls: string[]) => {
+    const uniqueUrls = urls.filter((url, index, arr) => Boolean(url) && arr.indexOf(url) === index);
+    if (uniqueUrls.length === 0 || analyzingReferencePrompt) return;
+
+    setAnalyzingReferencePrompt(true);
+    toast('Đang quét text, bố cục và màu sắc từ ảnh tham khảo...', { icon: '🔎' });
+    try {
+      const { prompt: analyzedPrompt } = await analyzeReferencePrompt({
+        reference_image_urls: uniqueUrls,
+        mode: 'replace_subject',
+      });
+      setPrompt(analyzedPrompt);
+      toast.success('Đã tạo prompt tiếng Việt từ ảnh tham khảo');
+    } catch (err) {
+      console.error('Analyze reference prompt error:', err);
+      toast.error('Lỗi quét prompt từ ảnh tham khảo');
+    } finally {
+      setAnalyzingReferencePrompt(false);
+    }
+  }, [analyzingReferencePrompt]);
+
   // Stable ref for callbacks
   const handleRunFlowRef = useRef(handleRunFlow);
   handleRunFlowRef.current = handleRunFlow;
@@ -791,6 +813,8 @@ function WorkflowCanvas() {
             onFilesAdd: (f: File[]) => setReferenceFiles(prev => [...prev, ...f]), 
             onFileRemove: (i: number) => setReferenceFiles(prev => prev.filter((_, idx) => idx !== i)), 
             onLibraryUrlsChange: (urls: string[]) => setReferenceLibraryUrls(urls),
+            onAnalyze: handleAnalyzeReferencePrompt,
+            analyzing: analyzingReferencePrompt,
             onDelete: deleteHandler 
           } };
         }
@@ -849,7 +873,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, handleAnalyzeReferencePrompt]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
