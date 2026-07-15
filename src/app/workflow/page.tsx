@@ -49,7 +49,7 @@ const initialNodes: Node[] = [
   { id: 'input-1', type: 'input', position: { x: 40, y: 255 }, data: { label: 'Ảnh đầu vào' } },
   { id: 'references-1', type: 'references', position: { x: 360, y: 135 }, data: {} },
   { id: 'layout-1', type: 'layout', position: { x: 360, y: 330 }, data: {} },
-  { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 430 }, data: {} },
+  { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 430 }, data: {}, style: { width: 360, height: 240 } },
   { id: 'generate-1', type: 'generate', position: { x: 745, y: 180 }, data: {} },
   { id: 'generate-2', type: 'generate', position: { x: 745, y: 545 }, data: {} },
 ];
@@ -65,9 +65,14 @@ const initialEdges: Edge[] = [
 
 function getInitialWorkflow() {
   return {
-    nodes: initialNodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
+    nodes: initialNodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position }, style: node.style ? { ...node.style } : undefined })),
     edges: initialEdges.map((edge) => ({ ...edge })),
   };
+}
+
+function getDefaultNodeStyle(type: string) {
+  if (type === 'prompt') return { width: 360, height: 240 };
+  return undefined;
 }
 
 // ═══════════════════════════════════════════════
@@ -744,7 +749,7 @@ function WorkflowCanvas() {
     const type = event.dataTransfer.getData('application/reactflow');
     if (!type) return;
     const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    setNodes((nds) => nds.concat({ id: getNextId(type), type, position, data: {} }));
+    setNodes((nds) => nds.concat({ id: getNextId(type), type, position, data: {}, style: getDefaultNodeStyle(type) }));
   }, [screenToFlowPosition, setNodes]);
 
   const handleAnalyzeReferencePrompt = useCallback(async (urls: string[]) => {
