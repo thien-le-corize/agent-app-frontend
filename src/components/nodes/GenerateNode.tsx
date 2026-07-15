@@ -159,7 +159,7 @@ function GenerateNode({ id, data }: GenerateNodeProps) {
                   {result.error_message}
                 </p>
               )}
-              <button onPointerDown={e => e.stopPropagation()} onClick={() => onRegenerate?.(0)} className="mt-1.5 text-[10px] text-gray-400 hover:text-white transition">
+              <button onPointerDown={e => e.stopPropagation()} onClick={() => onRegenerate?.(0)} className="nodrag mt-1.5 text-[10px] text-gray-400 hover:text-white transition">
                 Thử lại →
               </button>
             </div>

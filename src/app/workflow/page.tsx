@@ -832,7 +832,7 @@ function WorkflowCanvas() {
             generating: Boolean((node.data as any)?.generating),
             results: (node.data as any)?.results || [],
             onGenerate: (n: number) => handleRunFlowRef.current(n),
-            onRegenerate: (i: number, p?: string) => handleRegenerateRef.current(i, p),
+            onRegenerate: (_i: number, _p?: string) => handleRunFlowRef.current(1),
             canGenerate: !!selectedBrand && prompt.trim().length > 0,
             onDelete: deleteHandler
           } };
