@@ -573,6 +573,7 @@ function WorkflowCanvas() {
           }
           if (styleReferenceImages.length > 0) {
             enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
+            enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
           }
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
