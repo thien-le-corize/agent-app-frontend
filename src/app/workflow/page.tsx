@@ -593,8 +593,14 @@ function WorkflowCanvas() {
           const responses = [res];
           allResults.push(res);
 
-          if (responses[0]?.result_url) {
-            nodeResults[execNode.id] = responses[0].result_url;
+          if (res.status === 'failed') {
+            setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'error', generating: false, results: responses, lastPrompt: finalPrompt } } : n));
+            toast.error(res.error_message || 'Lỗi tạo ảnh');
+            continue;
+          }
+
+          if (res.result_url) {
+            nodeResults[execNode.id] = res.result_url;
           }
 
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false, results: responses, lastPrompt: finalPrompt } } : n));

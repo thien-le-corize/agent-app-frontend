@@ -152,8 +152,13 @@ function GenerateNode({ id, data }: GenerateNodeProps) {
 
           {/* Error */}
           {result?.status === 'failed' && (
-            <div className="m-2 rounded-xl py-6 text-center" style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)' }}>
+            <div className="m-2 rounded-xl px-3 py-5 text-center" style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)' }}>
               <p className="text-[11px] text-red-400">❌ Lỗi tạo ảnh</p>
+              {result.error_message && (
+                <p className="mt-1.5 text-[9px] leading-relaxed text-red-300/80 line-clamp-4" title={result.error_message}>
+                  {result.error_message}
+                </p>
+              )}
               <button onPointerDown={e => e.stopPropagation()} onClick={() => onRegenerate?.(0)} className="mt-1.5 text-[10px] text-gray-400 hover:text-white transition">
                 Thử lại →
               </button>
