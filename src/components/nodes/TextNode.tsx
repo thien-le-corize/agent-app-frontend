@@ -21,14 +21,14 @@ function TextNode({ data }: TextNodeProps) {
         {/* Header */}
         <div className="node-header" style={{ background: '#1e1c00', borderBottom: '1px solid #2a2600', padding: '7px 10px' }}>
           <StickyNote className="w-3.5 h-3.5 text-yellow-500" />
-          <span className="text-yellow-200/80 font-medium text-[11px]">Note</span>
+          <span className="text-yellow-200/80 font-medium text-[11px]">Văn bản</span>
         </div>
         <textarea
           value={text}
           onChange={e => onChange?.(e.target.value)}
           className="w-full bg-transparent text-[11px] text-yellow-100/70 leading-relaxed outline-none resize-none px-3 py-2.5"
           style={{ minHeight: 80 }}
-          placeholder="Ghi chú..."
+          placeholder="Nội dung sẽ được thêm vào prompt..."
           onPointerDown={e => e.stopPropagation()}
         />
         <Handle type="target" position={Position.Left} style={{ background: '#eab308' }} />

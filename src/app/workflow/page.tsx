@@ -18,7 +18,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode } from '@/components/nodes';
+import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
 import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt } from '@/lib/api';
@@ -36,10 +36,11 @@ const CONNECTION_RULES: Record<string, string[]> = {
   references: ['prompt', 'generate', 'image', 'aiprompt'],
   image: ['prompt', 'generate', 'image', 'video', 'aiprompt'],
   input: ['prompt', 'generate', 'aiprompt'],
+  layout: ['prompt', 'generate', 'aiprompt'],
   prompt: ['generate', 'video', 'prompt'],
   generate: ['video', 'generate', 'image', 'prompt'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'layout', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
   aiprompt: ['generate', 'prompt', 'video'],
 };
 
@@ -47,6 +48,7 @@ const initialNodes: Node[] = [
   { id: 'brand-1', type: 'brand', position: { x: 40, y: 40 }, data: {} },
   { id: 'input-1', type: 'input', position: { x: 40, y: 255 }, data: { label: 'Ảnh đầu vào' } },
   { id: 'references-1', type: 'references', position: { x: 360, y: 135 }, data: {} },
+  { id: 'layout-1', type: 'layout', position: { x: 360, y: 330 }, data: {} },
   { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 430 }, data: {} },
   { id: 'generate-1', type: 'generate', position: { x: 745, y: 180 }, data: {} },
   { id: 'generate-2', type: 'generate', position: { x: 745, y: 545 }, data: {} },
@@ -56,6 +58,7 @@ const initialEdges: Edge[] = [
   { id: 'e-brand-prompt', source: 'brand-1', target: 'prompt-1', animated: true },
   { id: 'e-input-prompt', source: 'input-1', target: 'prompt-1', animated: true },
   { id: 'e-reference-prompt', source: 'references-1', target: 'prompt-1', animated: true },
+  { id: 'e-layout-prompt', source: 'layout-1', target: 'prompt-1', animated: true },
   { id: 'e-prompt-generate-1', source: 'prompt-1', target: 'generate-1', animated: true },
   { id: 'e-prompt-generate-2', source: 'prompt-1', target: 'generate-2', animated: true },
 ];
@@ -217,6 +220,7 @@ function WorkflowCanvas() {
 
   // Text notes
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
+  const [layoutConfigs, setLayoutConfigs] = useState<Record<string, any>>({});
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
@@ -294,6 +298,8 @@ function WorkflowCanvas() {
     setPrompt('');
     setResults([]);
     setVideoResult(null);
+    setTextNotes({});
+    setLayoutConfigs({});
     localStorage.removeItem('workflow_draft');
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
@@ -339,6 +345,10 @@ function WorkflowCanvas() {
   inputNodeFilesRef.current = inputNodeFiles;
   const inputNodeLibraryUrlsRef = useRef(inputNodeLibraryUrls);
   inputNodeLibraryUrlsRef.current = inputNodeLibraryUrls;
+  const textNotesRef = useRef(textNotes);
+  textNotesRef.current = textNotes;
+  const layoutConfigsRef = useRef(layoutConfigs);
+  layoutConfigsRef.current = layoutConfigs;
 
   const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
@@ -352,6 +362,8 @@ function WorkflowCanvas() {
     const imageNodeLibraryUrls = imageNodeLibraryUrlsRef.current;
     const inputNodeFiles = inputNodeFilesRef.current;
     const inputNodeLibraryUrls = inputNodeLibraryUrlsRef.current;
+    const currentTextNotes = textNotesRef.current;
+    const currentLayoutConfigs = layoutConfigsRef.current;
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
@@ -428,6 +440,14 @@ function WorkflowCanvas() {
             if (nodeResults[inp.id]) {
               nodePrompt = nodeResults[inp.id];
             }
+          } else if (inp.type === 'text') {
+            const noteText = currentTextNotes[inp.id]?.trim();
+            if (noteText) {
+              nodePrompt += `\n\n[Text node instruction]\n${noteText}`;
+            }
+          } else if (inp.type === 'layout') {
+            const layoutPrompt = layoutConfigToPrompt(currentLayoutConfigs[inp.id] || (inp.data as any)?.config || {});
+            nodePrompt += `\n\n[Image layout node]\n${layoutPrompt}`;
           } else if (inp.type === 'image') {
             // Upload files từ image node + dùng libraryUrls trực tiếp
             const files = currentImageFiles[inp.id] || [];
@@ -787,7 +807,16 @@ function WorkflowCanvas() {
             onLibraryUrlsChange: (urls: string[]) => setInputNodeLibraryUrls(prev => ({ ...prev, [node.id]: urls })),
             onDelete: deleteHandler,
           } };
-        }        if (node.type === 'prompt') {
+        }
+        if (node.type === 'layout') {
+          const config = layoutConfigs[node.id] || (node.data as any)?.config;
+          return { ...node, data: {
+            config,
+            onChange: (nextConfig: any) => setLayoutConfigs(prev => ({ ...prev, [node.id]: nextConfig })),
+            onDelete: deleteHandler,
+          } };
+        }
+        if (node.type === 'prompt') {
           return { ...node, data: { prompt, onChange: setPrompt, onDelete: deleteHandler } };
         }
         if (node.type === 'generate') {
@@ -812,7 +841,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -820,6 +849,7 @@ function WorkflowCanvas() {
     references: ReferenceNode,
     image: ImageNode,
     input: InputImageNode,
+    layout: LayoutNode,
     prompt: PromptNode,
     generate: GenerateNode,
     video: VideoNode,

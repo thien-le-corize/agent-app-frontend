@@ -9,3 +9,5 @@ export { default as VideoNode } from './VideoNode';
 export { default as TextNode } from './TextNode';
 export { default as AIPromptNode } from './AIPromptNode';
 export { default as InputImageNode } from './InputImageNode';
+export { default as LayoutNode } from './LayoutNode';
+export { layoutConfigToPrompt } from './LayoutNode';
