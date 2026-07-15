@@ -569,7 +569,7 @@ function WorkflowCanvas() {
           // Build enhanced prompt với vai trò ảnh rõ ràng
           let enhancedPrompt = finalPrompt;
           if (inputImages.length > 0) {
-            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, outfit, pose, and key visual details as much as possible. Do not replace the input subject with a person/product from the style reference.]`;
+            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, product shape, and key visual details as much as possible. If a person's clothing, pose, framing, or mood is revealing, suggestive, intimate, or not suitable for a healthcare advertisement, convert it to modest professional advertising styling with covered clothing and a neutral commercial pose. Do not replace the input subject with a person/product from the style reference.]`;
           }
           if (styleReferenceImages.length > 0) {
             enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
@@ -578,6 +578,7 @@ function WorkflowCanvas() {
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
           }
+          enhancedPrompt += `\n\n[Professional safety: Always output a polished, non-sexual, family-safe professional advertisement. Use modest clothing, clean healthcare/commercial lighting, and brand-safe dental marketing aesthetics. Do not preserve provocative wardrobe, seductive pose, body-emphasis, bedroom/mirror-selfie intimacy, erotic mood, or suggestive framing from any input image.]`;
           enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
 
           console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
