@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
-import { MessageSquare, Check } from 'lucide-react';
+import { MessageSquare, Check, ChevronDown, ClipboardList } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface PromptNodeProps {
@@ -13,9 +13,42 @@ interface PromptNodeProps {
   };
 }
 
+const PROMPT_TEMPLATES = [
+  {
+    label: 'Thay nhân vật',
+    prompt: `Giữ nguyên bố cục, màu sắc, phong cách thiết kế và toàn bộ nội dung quảng cáo của ảnh tham khảo.
+Chỉ thay nhân vật trong ảnh tham khảo bằng nhân vật từ ảnh đầu vào.
+Nhân vật mặc trang phục kín đáo, chuyên nghiệp, phù hợp quảng cáo nha khoa.
+Không thay đổi logo, headline, ưu đãi, icon, bố cục, nền và các text khác nếu không cần.`,
+  },
+  {
+    label: 'Đổi thiết kế',
+    prompt: `Giữ nguyên nhân vật/sản phẩm từ ảnh đầu vào.
+Thiết kế lại toàn bộ poster theo phong cách quảng cáo nha khoa chuyên nghiệp, hiện đại và sạch sẽ.
+Có thể thay đổi bố cục, màu sắc, typography, nền, icon và cách trình bày ưu đãi.
+Nhân vật mặc trang phục kín đáo, non-sexual, phù hợp quảng cáo chuyên nghiệp.
+Nội dung text lấy theo prompt người dùng và brand hiện tại.`,
+  },
+  {
+    label: 'Thay text',
+    prompt: `Giữ nguyên bố cục, hình ảnh chính, màu sắc và phong cách của ảnh tham khảo.
+Chỉ thay toàn bộ text cũ trong ảnh tham khảo bằng nội dung mới từ prompt người dùng và brand hiện tại.
+Không giữ lại headline, ưu đãi, giá, CTA, địa chỉ, số điện thoại hoặc footer text cũ.
+Kết quả là quảng cáo nha khoa chuyên nghiệp, rõ chữ, dễ đọc.`,
+  },
+  {
+    label: 'Biến thể mới',
+    prompt: `Dựa vào ảnh tham khảo để lấy phong cách quảng cáo, màu sắc, bố cục tổng thể và cảm giác thiết kế.
+Tạo một phiên bản poster mới khác rõ ràng về bố cục, crop, vị trí nhân vật, typography và badge ưu đãi.
+Giữ đúng brand hiện tại và nội dung chính từ prompt người dùng.
+Output phải là quảng cáo chuyên nghiệp, trang phục kín đáo, non-sexual, phù hợp nha khoa.`,
+  },
+];
+
 function PromptNode({ data }: PromptNodeProps) {
   const { prompt = '', onChange, onDelete } = data;
   const [localPrompt, setLocalPrompt] = useState(prompt);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   useEffect(() => { setLocalPrompt(prompt); }, [prompt]);
 
@@ -24,14 +57,33 @@ function PromptNode({ data }: PromptNodeProps) {
     onChange?.(val);
   };
 
+  const applyTemplate = (val: string) => {
+    handleChange(val);
+    setTemplateOpen(false);
+  };
+
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: 300, background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div className="node-card nowheel relative" style={{ width: 300, background: '#141414', border: '1px solid #2a2a2a' }}>
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 12px' }}>
           <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
           <span className="text-gray-200 font-semibold text-[11px]">Prompt</span>
           <div className="flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTemplateOpen((open) => !open);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[9px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+              title="Chọn prompt mẫu"
+            >
+              <ClipboardList className="h-3 w-3" />
+              Mẫu
+              <ChevronDown className="h-3 w-3" />
+            </button>
             {localPrompt.length > 0 && (
               <span className="text-[9px] text-gray-600">{localPrompt.length} chars</span>
             )}
@@ -41,6 +93,27 @@ function PromptNode({ data }: PromptNodeProps) {
             }
           </div>
         </div>
+
+        {templateOpen && (
+          <div
+            className="absolute right-2 top-9 z-50 w-56 rounded-lg border border-[#2a2a2a] bg-[#181818] p-1 shadow-2xl"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {PROMPT_TEMPLATES.map((template) => (
+              <button
+                key={template.label}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  applyTemplate(template.prompt);
+                }}
+                className="block w-full rounded-md px-2.5 py-2 text-left text-[10px] font-medium text-gray-300 hover:bg-[#252525] hover:text-white"
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Textarea chiếm full */}
         <div className="p-0">
