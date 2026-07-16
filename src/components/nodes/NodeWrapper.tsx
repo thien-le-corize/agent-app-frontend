@@ -6,9 +6,10 @@ import { MouseEvent } from 'react';
 interface NodeWrapperProps {
   children: React.ReactNode;
   onDelete?: () => void;
+  className?: string;
 }
 
-export default function NodeWrapper({ children, onDelete }: NodeWrapperProps) {
+export default function NodeWrapper({ children, onDelete, className = '' }: NodeWrapperProps) {
   // Stop propagation on interactive elements inside nodes
   // This prevents React Flow from capturing clicks on buttons/inputs
   const handlePointerDown = (e: MouseEvent) => {
@@ -21,7 +22,7 @@ export default function NodeWrapper({ children, onDelete }: NodeWrapperProps) {
   };
 
   return (
-    <div className="relative group" onPointerDown={handlePointerDown}>
+    <div className={`relative group ${className}`} onPointerDown={handlePointerDown}>
       {/* Delete button */}
       {onDelete && (
         <button

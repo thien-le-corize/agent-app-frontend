@@ -64,7 +64,7 @@ function PromptNode({ data, selected }: PromptNodeProps) {
   };
 
   return (
-    <NodeWrapper onDelete={onDelete}>
+    <NodeWrapper onDelete={onDelete} className="h-full w-full">
       <NodeResizer
         isVisible={selected}
         minWidth={300}
@@ -134,7 +134,6 @@ function PromptNode({ data, selected }: PromptNodeProps) {
             value={localPrompt}
             onChange={e => handleChange(e.target.value)}
             className="prompt-node-textarea h-full w-full bg-transparent text-[11px] text-gray-300 leading-relaxed outline-none px-3 py-2.5"
-            style={{ minHeight: 120 }}
             placeholder="Mô tả ý tưởng sáng tạo của bạn..."
             onPointerDown={e => e.stopPropagation()}
           />
