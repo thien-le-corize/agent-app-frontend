@@ -161,6 +161,15 @@
     border-color: var(--node-border-hover);
   }
 
+  .prompt-node-card {
+    max-width: none !important;
+  }
+
+  .prompt-node-textarea {
+    resize: none !important;
+    overflow: auto;
+  }
+
   .node-card button,
   .node-card input,
   .node-card textarea,

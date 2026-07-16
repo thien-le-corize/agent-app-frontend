@@ -69,14 +69,14 @@ function PromptNode({ data, selected }: PromptNodeProps) {
         isVisible={selected}
         minWidth={300}
         minHeight={190}
-        maxWidth={800}
+        maxWidth={1000}
         maxHeight={650}
         lineClassName="!border-emerald-500/70"
-        handleClassName="!h-2.5 !w-2.5 !border-emerald-400 !bg-[#141414]"
+        handleClassName="!h-4 !w-4 !border-emerald-400 !bg-[#141414]"
       />
       <div
-        className="node-card nowheel relative flex h-full min-h-[190px] min-w-[300px] flex-col"
-        style={{ width: '100%', height: '100%', background: '#141414', border: '1px solid #2a2a2a' }}
+        className="node-card prompt-node-card nowheel relative flex h-full min-h-[190px] min-w-[300px] flex-col"
+        style={{ width: '100%', height: '100%', maxWidth: 'none', background: '#141414', border: '1px solid #2a2a2a' }}
       >
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 12px' }}>
@@ -133,7 +133,7 @@ function PromptNode({ data, selected }: PromptNodeProps) {
           <textarea
             value={localPrompt}
             onChange={e => handleChange(e.target.value)}
-            className="h-full w-full bg-transparent text-[11px] text-gray-300 leading-relaxed outline-none resize-none px-3 py-2.5"
+            className="prompt-node-textarea h-full w-full bg-transparent text-[11px] text-gray-300 leading-relaxed outline-none px-3 py-2.5"
             style={{ minHeight: 120 }}
             placeholder="Mô tả ý tưởng sáng tạo của bạn..."
             onPointerDown={e => e.stopPropagation()}
