@@ -15,11 +15,18 @@ export interface IdleMessage {
   message: string;
 }
 
+export interface IdleReminderScenario {
+  title: string;
+  trigger: string;
+  message: string;
+}
+
 export interface IdleSettings {
   enabled: boolean;
   delaySeconds: number; // Thời gian chờ chung
   maxReminders: number; // Số lần nhắc tối đa
-  context: string; // Context bổ sung cho AI
+  context: string; // Context cũ, giữ để tương thích dữ liệu đã lưu
+  reminderScenarios: IdleReminderScenario[];
 }
 
 interface Props {
@@ -68,7 +75,7 @@ export default function SettingsPanel({
   model, onModelChange, debugMode, onDebugChange, segments, onSegmentsChange,
   openingQuestions, onOpeningQuestionsChange, autoSuggest, onAutoSuggestChange,
   stats, categories, onRefresh, onOpenKnowledge, phrases = [], faqs = [],
-  idleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '' }, onIdleSettingsChange,
+  idleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '', reminderScenarios: [] }, onIdleSettingsChange,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     knowledge: true,
@@ -83,6 +90,7 @@ export default function SettingsPanel({
 
   const [newCategory, setNewCategory] = useState('');
   const [phraseForm, setPhraseForm] = useState({ category_id: '', intent: '', user_message: '', bot_response: '' });
+  const idleReminderScenarios = idleSettings.reminderScenarios || [];
 
   const toggle = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
 
@@ -127,6 +135,32 @@ export default function SettingsPanel({
     } catch {
       toast.error('Lỗi khi thêm');
     }
+  };
+
+  const updateIdleReminderScenario = (index: number, patch: Partial<IdleReminderScenario>) => {
+    const next = idleReminderScenarios.map((item, i) => (i === index ? { ...item, ...patch } : item));
+    onIdleSettingsChange?.({ ...idleSettings, reminderScenarios: next });
+  };
+
+  const addIdleReminderScenario = () => {
+    onIdleSettingsChange?.({
+      ...idleSettings,
+      reminderScenarios: [
+        ...idleReminderScenarios,
+        {
+          title: 'Khách quan tâm nhưng chưa đặt lịch',
+          trigger: 'Khách hỏi giá, hỏi ưu đãi, hỏi thời gian điều trị hoặc đã được tư vấn nhưng chưa phản hồi.',
+          message: 'Anh/chị muốn em giữ lịch tư vấn miễn phí hôm nay không ạ?',
+        },
+      ],
+    });
+  };
+
+  const removeIdleReminderScenario = (index: number) => {
+    onIdleSettingsChange?.({
+      ...idleSettings,
+      reminderScenarios: idleReminderScenarios.filter((_, i) => i !== index),
+    });
   };
 
   const sectionStyle = { borderBottom: '1px solid var(--border)' };
@@ -437,19 +471,84 @@ export default function SettingsPanel({
                 </select>
               </div>
 
-              {/* Context bổ sung */}
+              {/* Danh sách kịch bản/câu nhắc */}
               <div>
-                <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>
-                  Ưu đãi / Thông tin bổ sung (AI sẽ dùng để nhắc)
-                </label>
-                <textarea
-                  value={idleSettings.context || ''}
-                  onChange={(e) => onIdleSettingsChange?.({ ...idleSettings, context: e.target.value })}
-                  placeholder="VD: Giảm 20% cho khách mới, tặng gói kiểm tra miễn phí 500k, hotline: 0909..."
-                  className="w-full px-2.5 py-2 rounded-lg text-xs outline-none resize-none"
-                  style={inputStyle}
-                  rows={3}
-                />
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Kịch bản / câu nhắc mẫu
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addIdleReminderScenario}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium"
+                    style={{ background: 'var(--accent)', color: 'white' }}
+                  >
+                    <Plus className="h-3 w-3" /> Thêm
+                  </button>
+                </div>
+                <p className="mb-2 text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                  AI sẽ đọc lịch sử chat, chọn kịch bản phù hợp nhất rồi viết lại câu nhắc tự nhiên.
+                </p>
+
+                <div className="space-y-2">
+                  {idleReminderScenarios.length === 0 && (
+                    <div className="rounded-lg border border-dashed px-3 py-3 text-[11px]" style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}>
+                      Chưa có kịch bản. Bấm Thêm để tạo câu nhắc mẫu.
+                    </div>
+                  )}
+                  {idleReminderScenarios.map((scenario, index) => (
+                    <div key={index} className="rounded-lg p-2.5 space-y-2" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={scenario.title}
+                          onChange={(e) => updateIdleReminderScenario(index, { title: e.target.value })}
+                          placeholder="Tên kịch bản"
+                          className="flex-1 px-2 py-1.5 rounded text-xs outline-none"
+                          style={inputStyle}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeIdleReminderScenario(index)}
+                          className="rounded p-1.5 hover:bg-red-500/10"
+                          style={{ color: '#ef4444' }}
+                          title="Xóa kịch bản"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={scenario.trigger}
+                        onChange={(e) => updateIdleReminderScenario(index, { trigger: e.target.value })}
+                        placeholder="Khi nào dùng? VD: Khách hỏi giá niềng răng nhưng chưa đặt lịch..."
+                        className="w-full px-2 py-1.5 rounded text-xs outline-none resize-none"
+                        style={inputStyle}
+                        rows={2}
+                      />
+                      <textarea
+                        value={scenario.message}
+                        onChange={(e) => updateIdleReminderScenario(index, { message: e.target.value })}
+                        placeholder="Câu nhắc mẫu"
+                        className="w-full px-2 py-1.5 rounded text-xs outline-none resize-none"
+                        style={inputStyle}
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2">
+                  <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>
+                    Thông tin chung thêm
+                  </label>
+                  <textarea
+                    value={idleSettings.context || ''}
+                    onChange={(e) => onIdleSettingsChange?.({ ...idleSettings, context: e.target.value })}
+                    placeholder="VD: Giảm 20% cho khách mới, hotline: 0909..."
+                    className="w-full px-2.5 py-2 rounded-lg text-xs outline-none resize-none"
+                    style={inputStyle}
+                    rows={2}
+                  />
+                </div>
               </div>
             </div>
           </div>

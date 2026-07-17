@@ -35,6 +35,38 @@ import ChatPreview from './components/ChatPreview';
 import KnowledgeModal from './components/KnowledgeModal';
 import PromptLibraryModal from './components/PromptLibraryModal';
 
+const DEFAULT_IDLE_SETTINGS = {
+  enabled: true,
+  delaySeconds: 30,
+  maxReminders: 3,
+  context: 'Giảm 20% cho khách mới, tặng gói kiểm tra răng miệng miễn phí 500k, hotline: 0909.xxx.xxx',
+  reminderScenarios: [
+    {
+      title: 'Khách hỏi giá nhưng chưa đặt lịch',
+      trigger: 'Khách hỏi chi phí, ưu đãi, trả góp hoặc so sánh giá nhưng chưa phản hồi sau khi được tư vấn.',
+      message: 'Anh/chị muốn em kiểm tra khung giờ tư vấn miễn phí gần nhất để mình biết rõ chi phí thực tế không ạ?',
+    },
+    {
+      title: 'Khách quan tâm niềng răng',
+      trigger: 'Khách hỏi niềng răng, mắc cài, Invisalign, thời gian niềng hoặc có đau không.',
+      message: 'Em có thể hỗ trợ mình đặt lịch bác sĩ kiểm tra tình trạng răng để tư vấn phương án niềng phù hợp hơn ạ.',
+    },
+    {
+      title: 'Khách hỏi nhưng chưa chốt thông tin',
+      trigger: 'Khách đã hỏi dịch vụ nhưng chưa để lại số điện thoại, chi nhánh hoặc thời gian hẹn.',
+      message: 'Anh/chị để lại số điện thoại hoặc thời gian tiện, em hỗ trợ giữ lịch tư vấn cho mình nhé ạ.',
+    },
+  ],
+};
+
+function normalizeIdleSettings(settings?: any) {
+  return {
+    ...DEFAULT_IDLE_SETTINGS,
+    ...(settings || {}),
+    reminderScenarios: settings?.reminderScenarios || DEFAULT_IDLE_SETTINGS.reminderScenarios,
+  };
+}
+
 export default function ChatbotTrainingPage() {
   const [stats, setStats] = useState<TrainingStats | null>(null);
   const [categories, setCategories] = useState<TrainingCategory[]>([]);
@@ -79,13 +111,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   ]);
   const [autoSuggest, setAutoSuggest] = useState(true);
 
-  // Idle settings state (simplified)
-  const [idleSettings, setIdleSettings] = useState({
-    enabled: true,
-    delaySeconds: 30,
-    maxReminders: 3,
-    context: 'Giảm 20% cho khách mới, tặng gói kiểm tra răng miệng miễn phí 500k, hotline: 0909.xxx.xxx'
-  });
+  const [idleSettings, setIdleSettings] = useState(DEFAULT_IDLE_SETTINGS);
 
   // Modal states
   const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
@@ -117,6 +143,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
         if (botsData[0].settings?.auto_suggest) setAutoSuggest(botsData[0].settings.auto_suggest);
         if (botsData[0].settings?.opening_questions) setOpeningQuestions(botsData[0].settings.opening_questions);
         if (botsData[0].settings?.segments) setSegments(botsData[0].settings.segments);
+        setIdleSettings(normalizeIdleSettings(botsData[0].settings?.idle_settings));
       }
     } catch { toast.error('Không thể tải dữ liệu'); }
     finally { setLoading(false); }
@@ -137,7 +164,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
         name: newBotName.trim(), 
         prompt: promptContent, 
         model, 
-        settings: { auto_suggest: autoSuggest, segments, opening_questions: openingQuestions } 
+        settings: { auto_suggest: autoSuggest, segments, opening_questions: openingQuestions, idle_settings: idleSettings } 
       });
       toast.success(`Đã tạo chatbot: ${bot.name}`);
       setNewBotName('');
@@ -156,9 +183,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
     setAutoSuggest(bot.settings?.auto_suggest || false);
     setOpeningQuestions(bot.settings?.opening_questions || ['Niềng răng mất bao lâu?', 'Chi phí bao nhiêu?', 'Có đau không?']);
     setSegments(bot.settings?.segments || 4);
-    if (bot.settings?.idle_settings) {
-      setIdleSettings(bot.settings.idle_settings);
-    }
+    setIdleSettings(normalizeIdleSettings(bot.settings?.idle_settings));
   };
 
   const handleSaveBot = async () => {

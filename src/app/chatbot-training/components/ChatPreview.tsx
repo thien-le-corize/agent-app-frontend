@@ -13,6 +13,11 @@ export interface IdleSettings {
   delaySeconds: number;
   maxReminders: number;
   context: string;
+  reminderScenarios?: {
+    title: string;
+    trigger: string;
+    message: string;
+  }[];
 }
 
 function MessageContent({ content, isUser }: { content: string; isUser: boolean }) {
@@ -92,23 +97,36 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
   const idleCountRef = useRef(0);
 
   // Default idle settings
-  const defaultIdleSettings: IdleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '' };
+  const defaultIdleSettings: IdleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '', reminderScenarios: [] };
   const currentIdleSettings = idleSettings || defaultIdleSettings;
 
   // Generate tin nhắn nhắc bằng AI dựa trên context
   const generateIdleReminder = async (reminderCount: number): Promise<string> => {
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    const scenarioList = (currentIdleSettings.reminderScenarios || [])
+      .filter((scenario) => scenario.title?.trim() || scenario.trigger?.trim() || scenario.message?.trim())
+      .map((scenario, index) => `${index + 1}. Kịch bản: ${scenario.title || 'Không tên'}
+Điều kiện dùng: ${scenario.trigger || 'Không có'}
+Câu nhắc mẫu: ${scenario.message || 'Không có'}`)
+      .join('\n\n');
     
     // Tạo prompt để AI generate tin nhắn nhắc
     const reminderPrompt = `[HỆ THỐNG: Khách hàng đã im lặng. Đây là lần nhắc thứ ${reminderCount}/${currentIdleSettings.maxReminders}. 
-Hãy gửi tin nhắn nhắc nhở ngắn gọn, thân thiện để:
-- Lần 1: Hỏi thăm và giới thiệu ưu đãi nếu có
-- Lần 2: Đề nghị hỗ trợ đặt lịch hẹn
-- Lần 3+: Để lại thông tin liên hệ
+Hãy đọc lịch sử cuộc trò chuyện, xác định nhu cầu/ý định hiện tại của khách, rồi chọn kịch bản nhắc phù hợp nhất.
+Nếu có kịch bản mẫu bên dưới, ưu tiên dùng đúng ý của kịch bản phù hợp và viết lại thành một tin nhắn tự nhiên.
+Nếu không có kịch bản phù hợp, hãy gửi tin nhắn nhắc ngắn gọn, thân thiện theo thứ tự:
+- Lần 1: Hỏi thăm và gợi mở hỗ trợ tiếp
+- Lần 2: Đề nghị hỗ trợ đặt lịch hoặc tư vấn cụ thể
+- Lần 3+: Để lại thông tin liên hệ nhẹ nhàng
 
 ${currentIdleSettings.context ? `Thông tin ưu đãi/liên hệ: ${currentIdleSettings.context}` : ''}
+${scenarioList ? `Danh sách kịch bản/câu nhắc mẫu:\n${scenarioList}` : ''}
 
-Chỉ trả lời tin nhắn nhắc, không giải thích.]`;
+Yêu cầu:
+- Chỉ trả lời một tin nhắn nhắc gửi cho khách, không giải thích cách chọn.
+- Không nhắc rằng khách "im lặng" theo cách gây áp lực.
+- Giữ giọng tư vấn nha khoa chuyên nghiệp, thân thiện, ngắn gọn.
+- Không lặp lại y nguyên câu đã gửi trước đó trong lịch sử.]`;
     
     try {
       const { reply } = await chatWithBot({ message: reminderPrompt, history });
