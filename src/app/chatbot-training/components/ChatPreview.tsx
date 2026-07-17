@@ -95,14 +95,65 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
   const inputRef = useRef<HTMLInputElement>(null);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const idleCountRef = useRef(0);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   // Default idle settings
   const defaultIdleSettings: IdleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '', reminderScenarios: [] };
   const currentIdleSettings = idleSettings || defaultIdleSettings;
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const normalizeForCompare = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9à-ỹđ\s]/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const getTextSimilarity = (a: string, b: string) => {
+    const aTokens = new Set(normalizeForCompare(a).split(' ').filter(Boolean));
+    const bTokens = new Set(normalizeForCompare(b).split(' ').filter(Boolean));
+    if (aTokens.size === 0 || bTokens.size === 0) return 0;
+    const intersection = Array.from(aTokens).filter((token) => bTokens.has(token)).length;
+    const union = new Set(Array.from(aTokens).concat(Array.from(bTokens))).size;
+    return intersection / union;
+  };
+
+  const enforceNeutralAddress = (text: string) =>
+    text.replace(/(^|[\s(["“])anh(?=[\s,.!?)]|$)/gi, (match, prefix) => `${prefix}${match.trim()[0] === 'A' ? 'Anh/chị' : 'anh/chị'}`)
+      .replace(/(^|[\s(["“])chị(?=[\s,.!?)]|$)/gi, (match, prefix) => `${prefix}${match.trim()[0] === 'C' ? 'Anh/chị' : 'anh/chị'}`);
+
+  const pickFallbackReminder = (reminderCount: number, previousMessages: string[]) => {
+    const fallbacks = [
+      '😊 Anh/chị ơi, em vẫn ở đây để hỗ trợ mình tư vấn thêm về dịch vụ nha khoa ạ.',
+      '📅 Anh/chị muốn em kiểm tra giúp khung giờ tư vấn hoặc thăm khám gần nhất không ạ?',
+      '💬 Nếu anh/chị cần thêm thông tin, mình cứ nhắn lại, em sẽ hỗ trợ tiếp ngay ạ.',
+      '☎️ Anh/chị có thể để lại số điện thoại hoặc thời gian tiện, em hỗ trợ kết nối tư vấn cho mình ạ.',
+      '✨ Em có thể tóm tắt lại phương án phù hợp để anh/chị dễ quyết định hơn không ạ?',
+    ];
+    const previous = new Set(previousMessages.map(normalizeForCompare));
+    return fallbacks.find((message) => !previous.has(normalizeForCompare(message)))
+      || fallbacks[(reminderCount - 1) % fallbacks.length];
+  };
+
+  const makeReminderUnique = (message: string, reminderCount: number, previousMessages: string[]) => {
+    const cleaned = enforceNeutralAddress(message.trim());
+    const normalized = normalizeForCompare(cleaned);
+    const isDuplicate = previousMessages.some((previous) =>
+      normalizeForCompare(previous) === normalized || getTextSimilarity(previous, cleaned) >= 0.72
+    );
+    return isDuplicate ? pickFallbackReminder(reminderCount, previousMessages) : cleaned;
+  };
+
   // Generate tin nhắn nhắc bằng AI dựa trên context
   const generateIdleReminder = async (reminderCount: number): Promise<string> => {
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    const currentMessages = messagesRef.current;
+    const history = currentMessages.map((m) => ({ role: m.role, content: m.content }));
+    const previousAssistantMessages = currentMessages
+      .filter((m) => m.role === 'assistant')
+      .map((m) => m.content);
     const scenarioList = (currentIdleSettings.reminderScenarios || [])
       .filter((scenario) => scenario.title?.trim() || scenario.trigger?.trim() || scenario.message?.trim())
       .map((scenario, index) => `${index + 1}. Kịch bản: ${scenario.title || 'Không tên'}
@@ -121,24 +172,20 @@ Nếu không có kịch bản phù hợp, hãy gửi tin nhắn nhắc ngắn g�
 
 ${currentIdleSettings.context ? `Thông tin ưu đãi/liên hệ: ${currentIdleSettings.context}` : ''}
 ${scenarioList ? `Danh sách kịch bản/câu nhắc mẫu:\n${scenarioList}` : ''}
+${previousAssistantMessages.length ? `Các tin nhắn bot đã gửi, tuyệt đối không lặp lại nội dung tương tự:\n${previousAssistantMessages.map((message, index) => `${index + 1}. ${message}`).join('\n')}` : ''}
 
 Yêu cầu:
 - Chỉ trả lời một tin nhắn nhắc gửi cho khách, không giải thích cách chọn.
 - Không nhắc rằng khách "im lặng" theo cách gây áp lực.
 - Giữ giọng tư vấn nha khoa chuyên nghiệp, thân thiện, ngắn gọn.
-- Không lặp lại y nguyên câu đã gửi trước đó trong lịch sử.]`;
+- Xưng hô nhất quán bằng "anh/chị". Không dùng riêng "anh" hoặc riêng "chị".
+- Không lặp lại y nguyên hoặc gần giống câu đã gửi trước đó trong lịch sử.]`;
     
     try {
       const { reply } = await chatWithBot({ message: reminderPrompt, history });
-      return reply;
+      return makeReminderUnique(reply, reminderCount, previousAssistantMessages);
     } catch {
-      // Fallback message nếu API lỗi
-      const fallbacks = [
-        "😊 Anh/chị ơi, em có thể hỗ trợ gì thêm không ạ?",
-        "📅 Anh/chị có muốn em hỗ trợ đặt lịch hẹn không ạ?",
-        "💬 Nếu cần tư vấn thêm, anh/chị cứ nhắn em nhé!"
-      ];
-      return fallbacks[Math.min(reminderCount - 1, fallbacks.length - 1)];
+      return pickFallbackReminder(reminderCount, previousAssistantMessages);
     }
   };
 
@@ -164,7 +211,11 @@ Yêu cầu:
     idleTimerRef.current = setTimeout(async () => {
       idleCountRef.current++;
       const reminderMessage = await generateIdleReminder(idleCountRef.current);
-      setMessages(prev => [...prev, { role: 'assistant', content: reminderMessage }]);
+      setMessages(prev => {
+        const next = [...prev, { role: 'assistant' as const, content: reminderMessage }];
+        messagesRef.current = next;
+        return next;
+      });
       startIdleTimer();
     }, currentIdleSettings.delaySeconds * 1000);
   };
