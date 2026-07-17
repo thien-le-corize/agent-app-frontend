@@ -101,10 +101,22 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
   // Default idle settings
   const defaultIdleSettings: IdleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '', reminderScenarios: [] };
   const currentIdleSettings = idleSettings || defaultIdleSettings;
+  const idleSettingsRef = useRef(currentIdleSettings);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    idleSettingsRef.current = currentIdleSettings;
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    const lastMsg = messagesRef.current[messagesRef.current.length - 1];
+    if (lastMsg?.role === 'assistant') {
+      startIdleTimer();
+    }
+  }, [currentIdleSettings.enabled, currentIdleSettings.delaySeconds, currentIdleSettings.maxReminders]);
 
   const normalizeForCompare = (text: string) =>
     text
@@ -175,12 +187,13 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
 
   // Generate tin nhắn nhắc bằng AI dựa trên context
   const generateIdleReminder = async (reminderCount: number): Promise<string> => {
+    const activeIdleSettings = idleSettingsRef.current;
     const currentMessages = messagesRef.current;
     const history = currentMessages.map((m) => ({ role: m.role, content: m.content }));
     const previousAssistantMessages = currentMessages
       .filter((m) => m.role === 'assistant')
       .map((m) => m.content);
-    const scenarioList = (currentIdleSettings.reminderScenarios || [])
+    const scenarioList = (activeIdleSettings.reminderScenarios || [])
       .filter((scenario) => scenario.title?.trim() || scenario.trigger?.trim() || scenario.message?.trim())
       .map((scenario, index) => `${index + 1}. Kịch bản: ${scenario.title || 'Không tên'}
 Điều kiện dùng: ${scenario.trigger || 'Không có'}
@@ -188,7 +201,7 @@ Câu nhắc mẫu: ${scenario.message || 'Không có'}`)
       .join('\n\n');
     
     // Tạo prompt để AI generate tin nhắn nhắc
-    const reminderPrompt = `[HỆ THỐNG: Khách hàng đã im lặng. Đây là lần nhắc thứ ${reminderCount}/${currentIdleSettings.maxReminders}. 
+    const reminderPrompt = `[HỆ THỐNG: Khách hàng đã im lặng. Đây là lần nhắc thứ ${reminderCount}/${activeIdleSettings.maxReminders}. 
 Hãy đọc lịch sử cuộc trò chuyện, xác định nhu cầu/ý định hiện tại của khách, rồi chọn kịch bản nhắc phù hợp nhất.
 Nếu có kịch bản mẫu bên dưới, ưu tiên dùng đúng ý của kịch bản phù hợp và viết lại thành một tin nhắn tự nhiên.
 Nếu không có kịch bản phù hợp, hãy gửi tin nhắn nhắc ngắn gọn, thân thiện theo thứ tự:
@@ -196,7 +209,7 @@ Nếu không có kịch bản phù hợp, hãy gửi tin nhắn nhắc ngắn g�
 - Lần 2: Đề nghị hỗ trợ đặt lịch hoặc tư vấn cụ thể
 - Lần 3+: Để lại thông tin liên hệ nhẹ nhàng
 
-${currentIdleSettings.context ? `Thông tin ưu đãi/liên hệ: ${currentIdleSettings.context}` : ''}
+${activeIdleSettings.context ? `Thông tin ưu đãi/liên hệ: ${activeIdleSettings.context}` : ''}
 ${scenarioList ? `Danh sách kịch bản/câu nhắc mẫu:\n${scenarioList}` : ''}
 ${previousAssistantMessages.length ? `Các tin nhắn bot đã gửi, tuyệt đối không lặp lại nội dung tương tự:\n${previousAssistantMessages.map((message, index) => `${index + 1}. ${message}`).join('\n')}` : ''}
 
@@ -222,19 +235,20 @@ Yêu cầu:
     }
     idleCountRef.current = 0;
     if (idleOptOutRef.current) return;
-    if (currentIdleSettings.enabled) {
+    if (idleSettingsRef.current.enabled) {
       startIdleTimer();
     }
   };
 
   // Bắt đầu đếm thời gian idle
   const startIdleTimer = () => {
+    const activeIdleSettings = idleSettingsRef.current;
     if (idleOptOutRef.current) return;
-    if (!currentIdleSettings.enabled) return;
+    if (!activeIdleSettings.enabled) return;
     if (messagesRef.current.length === 0) return;
     
     const currentIdleIndex = idleCountRef.current;
-    if (currentIdleIndex >= currentIdleSettings.maxReminders) return;
+    if (currentIdleIndex >= activeIdleSettings.maxReminders) return;
 
     idleTimerRef.current = setTimeout(async () => {
       if (idleOptOutRef.current) return;
@@ -246,7 +260,7 @@ Yêu cầu:
         return next;
       });
       startIdleTimer();
-    }, currentIdleSettings.delaySeconds * 1000);
+    }, activeIdleSettings.delaySeconds * 1000);
   };
 
   // Cleanup timer khi unmount
@@ -257,16 +271,6 @@ Yêu cầu:
       }
     };
   }, []);
-
-  // Start idle timer khi có tin nhắn mới
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === 'user') {
-        resetIdleTimer();
-      }
-    }
-  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -302,6 +306,7 @@ Yêu cầu:
 
     const userMsg: ChatMessage = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
+    messagesRef.current = newMessages;
     setMessages(newMessages);
     setInput('');
     setSuggestions([]);
@@ -311,7 +316,9 @@ Yêu cầu:
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const { reply } = await chatWithBot({ message: text, history });
       const updatedMessages = [...newMessages, { role: 'assistant' as const, content: reply }];
+      messagesRef.current = updatedMessages;
       setMessages(updatedMessages);
+      resetIdleTimer();
 
       if (autoSuggest) {
         fetchSuggestions(updatedMessages);

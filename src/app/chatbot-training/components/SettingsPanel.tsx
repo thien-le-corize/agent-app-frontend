@@ -447,7 +447,7 @@ export default function SettingsPanel({
                     onChange={(e) => onIdleSettingsChange?.({ ...idleSettings, delaySeconds: parseInt(e.target.value) || 30 })}
                     className="w-20 px-2 py-1.5 rounded text-sm text-center outline-none"
                     style={inputStyle}
-                    min={10}
+                    min={3}
                     max={300}
                   />
                   <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>giây</span>
