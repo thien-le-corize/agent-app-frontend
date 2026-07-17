@@ -27,7 +27,6 @@ export const NODE_TYPES_LIST: NodeTypeInfo[] = [
   { type: 'brand',      label: 'Thương hiệu',    icon: Palette,       color: 'violet',  description: 'Chọn thương hiệu' },
   { type: 'input',      label: 'Ảnh ghép vào',   icon: ImagePlus,     color: 'blue',    description: 'Người/sản phẩm ghép trực tiếp vào ảnh' },
   { type: 'references', label: 'Hình tham khảo', icon: ImageIcon,     color: 'amber',   description: 'Layout/style reference' },
-  { type: 'layout',     label: 'Bố cục hình',   icon: FileText,      color: 'indigo',  description: 'Chọn bố cục ảnh như ComfyUI' },
   { type: 'image',      label: 'Image Source',   icon: ImageIcon,     color: 'cyan',    description: 'Ảnh input khác' },
   { type: 'aiprompt',   label: 'Prompt AI',      icon: Wand2,         color: 'purple',  description: 'AI tạo prompt từ thương hiệu' },
   { type: 'template',   label: 'Mẫu prompt',     icon: FileText,      color: 'indigo',  description: 'Prompt mẫu' },

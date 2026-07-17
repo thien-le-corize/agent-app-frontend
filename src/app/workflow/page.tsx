@@ -37,11 +37,10 @@ const CONNECTION_RULES: Record<string, string[]> = {
   references: ['prompt', 'generate', 'image', 'aiprompt'],
   image: ['prompt', 'generate', 'image', 'video', 'aiprompt'],
   input: ['prompt', 'generate', 'aiprompt'],
-  layout: ['prompt', 'generate', 'aiprompt'],
   prompt: ['generate', 'video', 'prompt'],
   generate: ['video', 'generate', 'image', 'prompt'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'input', 'layout', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
   aiprompt: ['generate', 'prompt', 'video'],
 };
 
@@ -49,8 +48,7 @@ const initialNodes: Node[] = [
   { id: 'brand-1', type: 'brand', position: { x: 40, y: 40 }, data: {} },
   { id: 'input-1', type: 'input', position: { x: 40, y: 255 }, data: { label: 'Ảnh đầu vào' } },
   { id: 'references-1', type: 'references', position: { x: 360, y: 135 }, data: {} },
-  { id: 'layout-1', type: 'layout', position: { x: 360, y: 330 }, data: {} },
-  { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 430 }, data: {}, style: { width: 360, height: 240 } },
+  { id: 'prompt-1', type: 'prompt', position: { x: 360, y: 380 }, data: {}, style: { width: 360, height: 240 } },
   { id: 'generate-1', type: 'generate', position: { x: 745, y: 180 }, data: {} },
   { id: 'generate-2', type: 'generate', position: { x: 745, y: 545 }, data: {} },
 ];
@@ -59,7 +57,6 @@ const initialEdges: Edge[] = [
   { id: 'e-brand-prompt', source: 'brand-1', target: 'prompt-1', animated: true },
   { id: 'e-input-prompt', source: 'input-1', target: 'prompt-1', animated: true },
   { id: 'e-reference-prompt', source: 'references-1', target: 'prompt-1', animated: true },
-  { id: 'e-layout-prompt', source: 'layout-1', target: 'prompt-1', animated: true },
   { id: 'e-prompt-generate-1', source: 'prompt-1', target: 'generate-1', animated: true },
   { id: 'e-prompt-generate-2', source: 'prompt-1', target: 'generate-2', animated: true },
 ];

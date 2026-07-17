@@ -88,7 +88,7 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
 
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: analysis ? 340 : 240, background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div className="node-card nowheel" style={{ width: analysis ? 560 : 240, maxWidth: analysis ? 'none' : undefined, background: '#141414', border: '1px solid #2a2a2a' }}>
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 10px' }}>
           <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
@@ -218,39 +218,45 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
         )}
 
         {analysis && (
-          <div className="px-2 pb-2 space-y-2">
-            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
-              <p className="text-[10px] font-semibold text-amber-300">Bố cục</p>
-              {Object.entries(analysis.layout || {}).map(([key, value]) => (
-                <label key={key} className="block">
-                  <span className="text-[8px] uppercase text-gray-600">{key}</span>
-                  <textarea
-                    value={value || ''}
-                    onChange={(e) => updateAnalysisSection('layout', key, e.target.value)}
-                    onPointerDown={e => e.stopPropagation()}
-                    className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] leading-relaxed text-gray-300 outline-none resize-none"
-                    rows={2}
-                  />
-                </label>
-              ))}
+          <div className="grid grid-cols-2 gap-2 px-2 pb-2">
+            <div className="space-y-2">
+              <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                <p className="text-[10px] font-semibold text-amber-300">Bố cục</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Object.entries(analysis.layout || {}).map(([key, value]) => (
+                    <label key={key} className={key === 'composition' || key === 'notes' ? 'col-span-2 block' : 'block'}>
+                      <span className="text-[8px] uppercase text-gray-600">{key}</span>
+                      <textarea
+                        value={value || ''}
+                        onChange={(e) => updateAnalysisSection('layout', key, e.target.value)}
+                        onPointerDown={e => e.stopPropagation()}
+                        className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] leading-relaxed text-gray-300 outline-none resize-none"
+                        rows={key === 'composition' || key === 'notes' ? 2 : 1}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)' }}>
+                <p className="text-[10px] font-semibold text-blue-300">Màu sắc</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Object.entries(analysis.colors || {}).map(([key, value]) => (
+                    <label key={key} className={key === 'notes' ? 'col-span-2 block' : 'block'}>
+                      <span className="text-[8px] uppercase text-gray-600">{key}</span>
+                      <input
+                        value={value || ''}
+                        onChange={(e) => updateAnalysisSection('colors', key, e.target.value)}
+                        onPointerDown={e => e.stopPropagation()}
+                        className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] text-gray-300 outline-none"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)' }}>
-              <p className="text-[10px] font-semibold text-blue-300">Màu sắc</p>
-              {Object.entries(analysis.colors || {}).map(([key, value]) => (
-                <label key={key} className="block">
-                  <span className="text-[8px] uppercase text-gray-600">{key}</span>
-                  <input
-                    value={value || ''}
-                    onChange={(e) => updateAnalysisSection('colors', key, e.target.value)}
-                    onPointerDown={e => e.stopPropagation()}
-                    className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] text-gray-300 outline-none"
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
+            <div className="rounded-lg p-2 space-y-1.5 max-h-[420px] overflow-y-auto" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-semibold text-emerald-300">Text trong ảnh</p>
                 <span className="text-[9px] text-gray-600">{analysis.textItems?.length || 0}</span>
