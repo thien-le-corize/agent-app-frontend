@@ -96,6 +96,7 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const idleCountRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);
+  const idleOptOutRef = useRef(false);
 
   // Default idle settings
   const defaultIdleSettings: IdleSettings = { enabled: true, delaySeconds: 30, maxReminders: 3, context: '', reminderScenarios: [] };
@@ -108,9 +109,34 @@ export default function ChatPreview({ promptContent, model, autoSuggest = false,
   const normalizeForCompare = (text: string) =>
     text
       .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
       .replace(/[^a-z0-9à-ỹđ\s]/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
+
+  const isIdleOptOutMessage = (text: string) => {
+    const normalized = normalizeForCompare(text);
+    const optOutPatterns = [
+      'dung nhan nua',
+      'dung nhan tin nua',
+      'dung gui nua',
+      'khong nhan nua',
+      'khong nhan tin nua',
+      'khong gui nua',
+      'ngung nhan',
+      'ngung gui',
+      'thoi dung nhan',
+      'thoi dung gui',
+      'stop',
+      'unsubscribe',
+      'huy nhan tin',
+      'bo nhac',
+      'tat nhac',
+    ];
+    return optOutPatterns.some((pattern) => normalized.includes(pattern));
+  };
 
   const getTextSimilarity = (a: string, b: string) => {
     const aTokens = new Set(normalizeForCompare(a).split(' ').filter(Boolean));
@@ -195,6 +221,7 @@ Yêu cầu:
       clearTimeout(idleTimerRef.current);
     }
     idleCountRef.current = 0;
+    if (idleOptOutRef.current) return;
     if (currentIdleSettings.enabled) {
       startIdleTimer();
     }
@@ -202,13 +229,15 @@ Yêu cầu:
 
   // Bắt đầu đếm thời gian idle
   const startIdleTimer = () => {
+    if (idleOptOutRef.current) return;
     if (!currentIdleSettings.enabled) return;
-    if (messages.length === 0) return;
+    if (messagesRef.current.length === 0) return;
     
     const currentIdleIndex = idleCountRef.current;
     if (currentIdleIndex >= currentIdleSettings.maxReminders) return;
 
     idleTimerRef.current = setTimeout(async () => {
+      if (idleOptOutRef.current) return;
       idleCountRef.current++;
       const reminderMessage = await generateIdleReminder(idleCountRef.current);
       setMessages(prev => {
@@ -267,6 +296,9 @@ Yêu cầu:
       clearTimeout(idleTimerRef.current);
     }
     idleCountRef.current = 0;
+    if (isIdleOptOutMessage(text)) {
+      idleOptOutRef.current = true;
+    }
 
     const userMsg: ChatMessage = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
@@ -303,6 +335,8 @@ Yêu cầu:
   const handleClearChat = () => {
     setMessages([]);
     setSuggestions([]);
+    messagesRef.current = [];
+    idleOptOutRef.current = false;
     // Reset idle timer
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
