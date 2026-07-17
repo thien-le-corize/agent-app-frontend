@@ -101,6 +101,35 @@ export async function analyzeReferencePrompt(payload: {
   return data;
 }
 
+export interface ReferenceStructureAnalysis {
+  prompt: string;
+  layout: Record<string, string>;
+  colors: Record<string, string>;
+  textItems: Array<{ role: string; originalText: string; suggestedText: string; position: string }>;
+  style: Record<string, string>;
+}
+
+export async function analyzeReferenceStructure(payload: {
+  reference_image_urls: string[];
+  mode?: 'replace_subject' | 'replace_text' | 'redesign';
+}): Promise<ReferenceStructureAnalysis> {
+  const { data } = await api.post('/image-generations/analyze-reference-structure', payload);
+  return data;
+}
+
+export async function analyzeBrandAsset(payload: {
+  logo_url: string;
+}): Promise<{
+  brandName: string;
+  colors: { primary: string; secondary: string; accent: string };
+  fontStyle: string;
+  visualStyle: string;
+  confidence: string;
+}> {
+  const { data } = await api.post('/image-generations/analyze-brand-asset', payload);
+  return data;
+}
+
 export async function getImageGenerations(params?: {
   brand_id?: string;
   status?: string;

@@ -7,6 +7,7 @@ import { useDropzone } from 'react-dropzone';
 import NodeWrapper from './NodeWrapper';
 import ReferenceLibraryModal from '../ReferenceLibraryModal';
 import { uploadReferenceImage } from '@/lib/api';
+import type { ReferenceStructureAnalysis } from '@/lib/api';
 
 interface ReferenceNodeProps {
   data: {
@@ -18,12 +19,14 @@ interface ReferenceNodeProps {
     onLibraryUrlsChange?: (urls: string[]) => void;
     onAnalyze?: (urls: string[]) => void | Promise<void>;
     analyzing?: boolean;
+    analysis?: ReferenceStructureAnalysis | null;
+    onAnalysisChange?: (analysis: ReferenceStructureAnalysis) => void;
     onDelete?: () => void;
   };
 }
 
 function ReferenceNode({ data }: ReferenceNodeProps) {
-  const { files = [], libraryUrls = [], onFilesAdd, onFileRemove, onLibraryUrlsChange, onAnalyze, analyzing, onDelete } = data;
+  const { files = [], libraryUrls = [], onFilesAdd, onFileRemove, onLibraryUrlsChange, onAnalyze, analyzing, analysis, onAnalysisChange, onDelete } = data;
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -64,10 +67,28 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
   };
 
   const totalCount = allUrls.length;
+  const updateAnalysisSection = (section: 'layout' | 'colors' | 'style', key: string, value: string) => {
+    if (!analysis) return;
+    onAnalysisChange?.({
+      ...analysis,
+      [section]: {
+        ...(analysis[section] || {}),
+        [key]: value,
+      },
+    });
+  };
+
+  const updateTextItem = (index: number, key: 'role' | 'originalText' | 'suggestedText' | 'position', value: string) => {
+    if (!analysis) return;
+    const nextItems = (analysis.textItems || []).map((item, i) => (
+      i === index ? { ...item, [key]: value } : item
+    ));
+    onAnalysisChange?.({ ...analysis, textItems: nextItems });
+  };
 
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: 240, background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div className="node-card nowheel" style={{ width: analysis ? 340 : 240, background: '#141414', border: '1px solid #2a2a2a' }}>
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 10px' }}>
           <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
@@ -193,6 +214,84 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
               <BookImage className="w-3.5 h-3.5" />
               Chọn từ thư viện
             </button>
+          </div>
+        )}
+
+        {analysis && (
+          <div className="px-2 pb-2 space-y-2">
+            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
+              <p className="text-[10px] font-semibold text-amber-300">Bố cục</p>
+              {Object.entries(analysis.layout || {}).map(([key, value]) => (
+                <label key={key} className="block">
+                  <span className="text-[8px] uppercase text-gray-600">{key}</span>
+                  <textarea
+                    value={value || ''}
+                    onChange={(e) => updateAnalysisSection('layout', key, e.target.value)}
+                    onPointerDown={e => e.stopPropagation()}
+                    className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] leading-relaxed text-gray-300 outline-none resize-none"
+                    rows={2}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)' }}>
+              <p className="text-[10px] font-semibold text-blue-300">Màu sắc</p>
+              {Object.entries(analysis.colors || {}).map(([key, value]) => (
+                <label key={key} className="block">
+                  <span className="text-[8px] uppercase text-gray-600">{key}</span>
+                  <input
+                    value={value || ''}
+                    onChange={(e) => updateAnalysisSection('colors', key, e.target.value)}
+                    onPointerDown={e => e.stopPropagation()}
+                    className="w-full rounded-md bg-black/30 px-2 py-1 text-[9px] text-gray-300 outline-none"
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-emerald-300">Text trong ảnh</p>
+                <span className="text-[9px] text-gray-600">{analysis.textItems?.length || 0}</span>
+              </div>
+              {(analysis.textItems || []).map((item, index) => (
+                <div key={index} className="space-y-1 rounded-md bg-black/25 p-1.5">
+                  <div className="grid grid-cols-2 gap-1">
+                    <input
+                      value={item.role || ''}
+                      onChange={(e) => updateTextItem(index, 'role', e.target.value)}
+                      onPointerDown={e => e.stopPropagation()}
+                      placeholder="role"
+                      className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                    />
+                    <input
+                      value={item.position || ''}
+                      onChange={(e) => updateTextItem(index, 'position', e.target.value)}
+                      onPointerDown={e => e.stopPropagation()}
+                      placeholder="vị trí"
+                      className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                    />
+                  </div>
+                  <textarea
+                    value={item.originalText || ''}
+                    onChange={(e) => updateTextItem(index, 'originalText', e.target.value)}
+                    onPointerDown={e => e.stopPropagation()}
+                    placeholder="text OCR"
+                    className="w-full rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-500 outline-none resize-none"
+                    rows={2}
+                  />
+                  <textarea
+                    value={item.suggestedText || ''}
+                    onChange={(e) => updateTextItem(index, 'suggestedText', e.target.value)}
+                    onPointerDown={e => e.stopPropagation()}
+                    placeholder="text mới"
+                    className="w-full rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-200 outline-none resize-none"
+                    rows={2}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

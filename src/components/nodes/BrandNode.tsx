@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from 'reactflow';
-import { Palette, Plus, Check, Pencil, Trash2 } from 'lucide-react';
+import { Palette, Plus, Check, Pencil, Trash2, Wand2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface BrandNodeProps {
@@ -11,13 +11,15 @@ interface BrandNodeProps {
     onSelect?: (brand: any) => void;
     onCreateNew?: () => void;
     onEdit?: (brand: any) => void;
+    onAnalyzeBrand?: () => void | Promise<void>;
+    analyzingBrand?: boolean;
     onDeleteBrand?: (brand: any) => void;
     onDelete?: () => void;
   };
 }
 
 function BrandNode({ data }: BrandNodeProps) {
-  const { brands = [], selectedBrand, onSelect, onCreateNew, onEdit, onDeleteBrand, onDelete } = data;
+  const { brands = [], selectedBrand, onSelect, onCreateNew, onEdit, onAnalyzeBrand, analyzingBrand, onDeleteBrand, onDelete } = data;
 
   return (
     <NodeWrapper onDelete={onDelete}>
@@ -54,6 +56,24 @@ function BrandNode({ data }: BrandNodeProps) {
                     </button>
                   </div>
                 </div>
+                {selectedBrand.logo_url && (
+                  <button
+                    type="button"
+                    onClick={() => onAnalyzeBrand?.()}
+                    onPointerDown={e => e.stopPropagation()}
+                    disabled={analyzingBrand}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-medium text-violet-300 transition hover:bg-violet-500/15 disabled:opacity-60"
+                    style={{ border: '1px solid rgba(168,85,247,0.25)', background: 'rgba(168,85,247,0.08)' }}
+                    title="Quét tên thương hiệu, màu sắc và font từ logo"
+                  >
+                    {analyzingBrand ? (
+                      <div className="h-3 w-3 rounded-full border-2 border-violet-300 border-t-transparent animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3" />
+                    )}
+                    {analyzingBrand ? 'Đang quét...' : 'Quét logo'}
+                  </button>
+                )}
               </div>
             </div>
           ) : (

@@ -21,7 +21,8 @@ import 'reactflow/dist/style.css';
 import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt, analyzeReferencePrompt } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt, analyzeReferenceStructure, analyzeBrandAsset, updateBrand } from '@/lib/api';
+import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -73,6 +74,31 @@ function getInitialWorkflow() {
 function getDefaultNodeStyle(type: string) {
   if (type === 'prompt') return { width: 360, height: 240 };
   return undefined;
+}
+
+function buildPromptFromReferenceAnalysis(analysis: ReferenceStructureAnalysis) {
+  const layout = Object.entries(analysis.layout || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
+  const colors = Object.entries(analysis.colors || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
+  const style = Object.entries(analysis.style || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
+  const texts = (analysis.textItems || []).map((item, index) =>
+    `${index + 1}. [${item.role || 'text'} | ${item.position || 'không rõ'}]\nOCR cũ: ${item.originalText || 'không rõ'}\nText mới: ${item.suggestedText || ''}`
+  ).join('\n\n');
+
+  return `${analysis.prompt || 'Tạo quảng cáo nha khoa chuyên nghiệp dựa trên ảnh tham khảo.'}
+
+[Bố cục đã quét]
+${layout || '- Giữ bố cục chính từ ảnh tham khảo.'}
+
+[Màu sắc đã quét]
+${colors || '- Giữ màu sắc chính từ ảnh tham khảo.'}
+
+[Text cần thay]
+${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt người dùng.'}
+
+[Style]
+${style || '- Quảng cáo chuyên nghiệp, sạch, phù hợp nha khoa.'}
+
+Yêu cầu bắt buộc: thay toàn bộ text cũ bằng các text mới ở trên, giữ hierarchy/vị trí tương ứng, output chuyên nghiệp, trang phục kín đáo, non-sexual.`;
 }
 
 // ═══════════════════════════════════════════════
@@ -201,12 +227,14 @@ function WorkflowCanvas() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
   const [referenceLibraryUrls, setReferenceLibraryUrls] = useState<string[]>([]);
+  const [referenceAnalysis, setReferenceAnalysis] = useState<ReferenceStructureAnalysis | null>(null);
   const [imageNodeFiles, setImageNodeFiles] = useState<Record<string, File[]>>({});
   const [imageNodeLibraryUrls, setImageNodeLibraryUrls] = useState<Record<string, string[]>>({});
   const [inputNodeFiles, setInputNodeFiles] = useState<Record<string, File[]>>({});
   const [inputNodeLibraryUrls, setInputNodeLibraryUrls] = useState<Record<string, string[]>>({});
   const [prompt, setPrompt] = useState('');
   const [analyzingReferencePrompt, setAnalyzingReferencePrompt] = useState(false);
+  const [analyzingBrand, setAnalyzingBrand] = useState(false);
   const [sidePanel, setSidePanel] = useState<'brand' | 'template' | null>(null);
 
   // Generate state
@@ -297,6 +325,7 @@ function WorkflowCanvas() {
     setEdges(workflow.edges);
     setReferenceFiles([]);
     setReferenceLibraryUrls([]);
+    setReferenceAnalysis(null);
     setImageNodeFiles({});
     setImageNodeLibraryUrls({});
     setInputNodeFiles({});
@@ -759,12 +788,13 @@ function WorkflowCanvas() {
     setAnalyzingReferencePrompt(true);
     toast('Đang quét text, bố cục và màu sắc từ ảnh tham khảo...', { icon: '🔎' });
     try {
-      const { prompt: analyzedPrompt } = await analyzeReferencePrompt({
+      const analysis = await analyzeReferenceStructure({
         reference_image_urls: uniqueUrls,
         mode: 'replace_subject',
       });
-      setPrompt(analyzedPrompt);
-      toast.success('Đã tạo prompt tiếng Việt từ ảnh tham khảo');
+      setReferenceAnalysis(analysis);
+      setPrompt(buildPromptFromReferenceAnalysis(analysis));
+      toast.success('Đã tách bố cục, màu sắc và text từ ảnh tham khảo');
     } catch (err) {
       console.error('Analyze reference prompt error:', err);
       toast.error('Lỗi quét prompt từ ảnh tham khảo');
@@ -772,6 +802,48 @@ function WorkflowCanvas() {
       setAnalyzingReferencePrompt(false);
     }
   }, [analyzingReferencePrompt]);
+
+  const handleReferenceAnalysisChange = useCallback((analysis: ReferenceStructureAnalysis) => {
+    setReferenceAnalysis(analysis);
+    setPrompt(buildPromptFromReferenceAnalysis(analysis));
+  }, []);
+
+  const handleAnalyzeBrand = useCallback(async () => {
+    if (!selectedBrand?.logo_url || analyzingBrand) {
+      toast.error('Brand cần có logo để quét');
+      return;
+    }
+    setAnalyzingBrand(true);
+    toast('Đang quét logo brand...', { icon: '🎨' });
+    try {
+      const analysis = await analyzeBrandAsset({ logo_url: selectedBrand.logo_url });
+      const nextBrand = {
+        ...selectedBrand,
+        name: analysis.brandName || selectedBrand.name,
+        primary_color: analysis.colors?.primary || selectedBrand.primary_color,
+        secondary_color: analysis.colors?.secondary || selectedBrand.secondary_color,
+        description: [
+          selectedBrand.description,
+          `Font: ${analysis.fontStyle}`,
+          `Style: ${analysis.visualStyle}`,
+        ].filter(Boolean).join('\n'),
+      };
+      const saved = await updateBrand(selectedBrand.id, {
+        name: nextBrand.name,
+        primary_color: nextBrand.primary_color,
+        secondary_color: nextBrand.secondary_color,
+        description: nextBrand.description,
+      });
+      setSelectedBrand(saved);
+      setBrands(prev => prev.map((brand) => brand.id === saved.id ? saved : brand));
+      toast.success('Đã quét và cập nhật brand từ logo');
+    } catch (err) {
+      console.error('Analyze brand error:', err);
+      toast.error('Lỗi quét logo brand');
+    } finally {
+      setAnalyzingBrand(false);
+    }
+  }, [analyzingBrand, selectedBrand]);
 
   // Stable ref for callbacks
   const handleRunFlowRef = useRef(handleRunFlow);
@@ -795,6 +867,8 @@ function WorkflowCanvas() {
             onSelect: setSelectedBrand, 
             onCreateNew: () => setSidePanel('brand'), 
             onEdit: (brand: Brand) => setEditingBrand(brand),
+            onAnalyzeBrand: handleAnalyzeBrand,
+            analyzingBrand,
             onDeleteBrand: async (brand: Brand) => {
               if (!confirm(`Xóa brand "${brand.name}"?`)) return;
               try {
@@ -820,6 +894,8 @@ function WorkflowCanvas() {
             onLibraryUrlsChange: (urls: string[]) => setReferenceLibraryUrls(urls),
             onAnalyze: handleAnalyzeReferencePrompt,
             analyzing: analyzingReferencePrompt,
+            analysis: referenceAnalysis,
+            onAnalysisChange: handleReferenceAnalysisChange,
             onDelete: deleteHandler 
           } };
         }
@@ -878,7 +954,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, handleAnalyzeReferencePrompt]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
