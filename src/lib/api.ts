@@ -112,6 +112,14 @@ export interface ReferenceStructureAnalysis {
     brandRole: string;
     note: string;
   }>;
+  productSlots?: Array<{
+    role: string;
+    description: string;
+    position: string;
+    size: string;
+    shouldReplaceWithInput: boolean;
+    replacementInstruction: string;
+  }>;
   textItems: Array<{ role: string; originalText: string; suggestedText: string; position: string }>;
   style: Record<string, string>;
 }

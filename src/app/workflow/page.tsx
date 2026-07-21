@@ -93,6 +93,9 @@ function buildPromptFromReferenceAnalysis(analysis: ReferenceStructureAnalysis, 
   const colorReplacements = (analysis.colorReplacements || []).map((item, index) =>
     `${index + 1}. ${item.originalColor || 'màu tham khảo'} (${item.originalUsage || 'không rõ'}) -> ${item.replaceWith || item.brandRole || 'màu brand phù hợp'}: ${item.note || 'đổi sang palette brand'}`
   ).join('\n');
+  const productSlots = (analysis.productSlots || []).map((item, index) =>
+    `${index + 1}. [${item.role || 'product'} | ${item.position || 'không rõ'} | ${item.size || 'không rõ'}]\nSản phẩm cũ: ${item.description || 'không rõ'}\nThay bằng ảnh đầu vào: ${item.shouldReplaceWithInput === false ? 'không bắt buộc' : 'bắt buộc'}\nCách thay: ${item.replacementInstruction || 'Giữ vị trí/kích thước/perspective/ánh sáng của slot, thay sản phẩm cũ bằng sản phẩm từ ảnh đầu vào.'}`
+  ).join('\n\n');
   const style = Object.entries(analysis.style || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
   const texts = (analysis.textItems || []).map((item, index) =>
     `${index + 1}. [${item.role || 'text'} | ${item.position || 'không rõ'}]\nOCR cũ: ${item.originalText || 'không rõ'}\nText mới: ${item.suggestedText || ''}`
@@ -116,6 +119,12 @@ ${buildBrandPaletteInstruction(brand)}
 - Headline, product/service name, chữ display lớn dùng brand primary hoặc secondary; CTA/badge/icon dùng primary/accent; text nhỏ dùng màu dễ đọc theo brand.
 - Chỉ giữ trắng/đen/xám trung tính và màu tự nhiên của ảnh người/sản phẩm khi cần.
 ${colorReplacements || '- Map màu nền/gradient sang màu brand nền/phụ, CTA/badge/icon sang primary/accent, headline/display text/product name sang primary hoặc secondary của brand.'}
+
+[Sản phẩm chính trong ảnh tham khảo]
+${productSlots || '- Nếu ảnh tham khảo có sản phẩm/mockup/vật thể chính, dùng ảnh đầu vào để thay sản phẩm cũ trong đúng vị trí đó.'}
+- Khi có node Ảnh đầu vào nối vào workflow, sản phẩm/người/vật thể từ ảnh đầu vào là bắt buộc. Không giữ sản phẩm cũ từ ảnh tham khảo.
+- Giữ bố cục slot sản phẩm: vị trí, kích thước, phối cảnh, ánh sáng, bóng đổ, khung tròn/card/badge xung quanh nếu có.
+- Nếu ảnh đầu vào là sản phẩm, thay product slot. Nếu ảnh đầu vào là người mẫu, thay subject/person slot. Nếu có nhiều ảnh đầu vào, dùng ảnh phù hợp nhất cho từng slot.
 
 [Text cần thay]
 ${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt người dùng.'}
@@ -637,10 +646,11 @@ function WorkflowCanvas() {
           // Build enhanced prompt với vai trò ảnh rõ ràng
           let enhancedPrompt = finalPrompt;
           if (inputImages.length > 0) {
-            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, product shape, and key visual details as much as possible. If a person's clothing, pose, framing, or mood is revealing, suggestive, intimate, or not suitable for a healthcare advertisement, convert it to modest professional advertising styling with covered clothing and a neutral commercial pose. Do not replace the input subject with a person/product from the style reference.]`;
+            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, product shape, packaging, label details, silhouette, materials, and key visual details as much as possible. If the style reference contains an old product/mockup/device/dental object/before-after image/product packshot, replace that old product slot with the matching input image while keeping the slot position, scale, perspective, lighting, and surrounding layout. If a person's clothing, pose, framing, or mood is revealing, suggestive, intimate, or not suitable for a healthcare advertisement, convert it to modest professional advertising styling with covered clothing and a neutral commercial pose. Do not replace the input subject with a person/product from the style reference.]`;
           }
           if (styleReferenceImages.length > 0) {
             enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
+            enhancedPrompt += `\n\n[Product replacement: Detect any main product, packshot, dental tray, teeth image, device, mockup, before/after panel, or object slot in the style reference. When input images are provided, replace those old reference products/objects with the matching input product/object. Preserve layout slot geometry, crop, shadows, reflections, perspective, and nearby badges, but remove the old product.]`;
             enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
           }
           if (currentBrand) {

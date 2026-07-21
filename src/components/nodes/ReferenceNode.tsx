@@ -94,6 +94,14 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
     onAnalysisChange?.({ ...analysis, colorReplacements: nextItems });
   };
 
+  const updateProductSlot = (index: number, key: 'role' | 'description' | 'position' | 'size' | 'replacementInstruction', value: string) => {
+    if (!analysis) return;
+    const nextItems = (analysis.productSlots || []).map((item, i) => (
+      i === index ? { ...item, [key]: value } : item
+    ));
+    onAnalysisChange?.({ ...analysis, productSlots: nextItems });
+  };
+
   return (
     <NodeWrapper onDelete={onDelete}>
       <div className="node-card nowheel" style={{ width: analysis ? 560 : 240, maxWidth: analysis ? 'none' : undefined, background: '#141414', border: '1px solid #2a2a2a' }}>
@@ -299,6 +307,50 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
                   </div>
                 )}
               </div>
+
+              {(analysis.productSlots || []).length > 0 && (
+                <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(20,184,166,0.06)', border: '1px solid rgba(20,184,166,0.18)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold text-teal-300">Sản phẩm chính</p>
+                    <span className="text-[9px] text-gray-600">{analysis.productSlots?.length || 0}</span>
+                  </div>
+                  {(analysis.productSlots || []).map((item, index) => (
+                    <div key={index} className="space-y-1 rounded-md bg-black/25 p-1.5">
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          value={item.role || ''}
+                          onChange={(e) => updateProductSlot(index, 'role', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="main_product"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                        <input
+                          value={item.position || ''}
+                          onChange={(e) => updateProductSlot(index, 'position', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="vị trí"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                      </div>
+                      <input
+                        value={item.description || ''}
+                        onChange={(e) => updateProductSlot(index, 'description', e.target.value)}
+                        onPointerDown={e => e.stopPropagation()}
+                        placeholder="mô tả sản phẩm cũ"
+                        className="w-full rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                      />
+                      <textarea
+                        value={item.replacementInstruction || ''}
+                        onChange={(e) => updateProductSlot(index, 'replacementInstruction', e.target.value)}
+                        onPointerDown={e => e.stopPropagation()}
+                        placeholder="cách thay bằng ảnh đầu vào"
+                        className="w-full rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-200 outline-none resize-none"
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg p-2 space-y-1.5 max-h-[420px] overflow-y-auto" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
