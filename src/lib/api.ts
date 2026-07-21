@@ -346,6 +346,7 @@ export async function deleteTrainingFAQ(id: string): Promise<void> {
 // Chat with AI Bot
 export async function chatWithBot(payload: {
   message: string;
+  system_prompt?: string;
   history?: { role: 'user' | 'assistant'; content: string }[];
 }): Promise<{ reply: string }> {
   const { data } = await api.post('/chatbot-training/chat', payload);

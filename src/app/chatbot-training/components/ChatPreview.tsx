@@ -221,7 +221,7 @@ Yêu cầu:
 - Không lặp lại y nguyên hoặc gần giống câu đã gửi trước đó trong lịch sử.]`;
     
     try {
-      const { reply } = await chatWithBot({ message: reminderPrompt, history });
+      const { reply } = await chatWithBot({ message: reminderPrompt, system_prompt: promptContent, history });
       return makeReminderUnique(reply, reminderCount, previousAssistantMessages);
     } catch {
       return pickFallbackReminder(reminderCount, previousAssistantMessages);
@@ -314,7 +314,7 @@ Yêu cầu:
 
     try {
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
-      const { reply } = await chatWithBot({ message: text, history });
+      const { reply } = await chatWithBot({ message: text, system_prompt: promptContent, history });
       const updatedMessages = [...newMessages, { role: 'assistant' as const, content: reply }];
       messagesRef.current = updatedMessages;
       setMessages(updatedMessages);

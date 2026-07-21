@@ -29,7 +29,7 @@ import {
   TrainingFAQ,
   TrainingStats,
 } from '@/types';
-import PromptEditor from './components/PromptEditor';
+import PromptEditor, { DEFAULT_AI_RULES } from './components/PromptEditor';
 import SettingsPanel from './components/SettingsPanel';
 import ChatPreview from './components/ChatPreview';
 import KnowledgeModal from './components/KnowledgeModal';
@@ -115,6 +115,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
     'Có đau không?',
   ]);
   const [autoSuggest, setAutoSuggest] = useState(true);
+  const [aiRules, setAiRules] = useState<string[]>(DEFAULT_AI_RULES);
 
   const [idleSettings, setIdleSettings] = useState(DEFAULT_IDLE_SETTINGS);
 
@@ -148,6 +149,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
         if (botsData[0].settings?.auto_suggest) setAutoSuggest(botsData[0].settings.auto_suggest);
         if (botsData[0].settings?.opening_questions) setOpeningQuestions(botsData[0].settings.opening_questions);
         if (botsData[0].settings?.segments) setSegments(botsData[0].settings.segments);
+        setAiRules(Array.isArray(botsData[0].settings?.rules) ? botsData[0].settings.rules : DEFAULT_AI_RULES);
         setIdleSettings(normalizeIdleSettings(botsData[0].settings?.idle_settings));
       }
     } catch { toast.error('Không thể tải dữ liệu'); }
@@ -169,7 +171,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
         name: newBotName.trim(), 
         prompt: promptContent, 
         model, 
-        settings: { auto_suggest: autoSuggest, segments, opening_questions: openingQuestions, idle_settings: idleSettings } 
+        settings: { auto_suggest: autoSuggest, segments, opening_questions: openingQuestions, idle_settings: idleSettings, rules: aiRules } 
       });
       toast.success(`Đã tạo chatbot: ${bot.name}`);
       setNewBotName('');
@@ -188,6 +190,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
     setAutoSuggest(bot.settings?.auto_suggest || false);
     setOpeningQuestions(bot.settings?.opening_questions || ['Niềng răng mất bao lâu?', 'Chi phí bao nhiêu?', 'Có đau không?']);
     setSegments(bot.settings?.segments || 4);
+    setAiRules(Array.isArray(bot.settings?.rules) ? bot.settings.rules : DEFAULT_AI_RULES);
     setIdleSettings(normalizeIdleSettings(bot.settings?.idle_settings));
   };
 
@@ -203,14 +206,35 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
           segments, 
           opening_questions: openingQuestions,
           idle_settings: idleSettings,
+          rules: aiRules,
         } 
       });
+      const savedBot = chatbots.find((bot) => bot.id === selectedBotId);
+      if (savedBot) {
+        setChatbots((prev) => prev.map((bot) => bot.id === selectedBotId ? {
+          ...bot,
+          prompt: promptContent,
+          model,
+          settings: {
+            ...(bot.settings || {}),
+            auto_suggest: autoSuggest,
+            segments,
+            opening_questions: openingQuestions,
+            idle_settings: idleSettings,
+            rules: aiRules,
+          },
+        } : bot));
+      }
       toast.success('Đã lưu chatbot');
     } catch { toast.error('Lỗi lưu'); }
     finally { setSaving(false); }
   };
 
   const selectedBot = chatbots.find(b => b.id === selectedBotId);
+  const promptWithRules = `${promptContent}
+
+## AI RULES
+${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}`;
 
   if (loading) {
     return (
@@ -352,6 +376,8 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
             onImport={handleImport}
             onOpenKnowledge={() => setShowKnowledgeModal(true)}
             onOpenPromptLibrary={() => setShowPromptLibrary(true)}
+            rules={aiRules}
+            onRulesChange={setAiRules}
           />
         </div>
 
@@ -385,7 +411,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
         {/* Chat Preview (right) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <ChatPreview
-            promptContent={promptContent}
+            promptContent={promptWithRules}
             model={model}
             autoSuggest={autoSuggest}
             idleSettings={idleSettings}

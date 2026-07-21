@@ -1,33 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpen, Eye, Sparkles, RotateCcw, Download, MessageSquare, Theater, HelpCircle, Plus, Trash2, GripVertical } from 'lucide-react';
 import { TrainingPhrase, TrainingScenario, TrainingFAQ, TrainingCategory } from '@/types';
 
-function RulesEditor() {
-  const [rules, setRules] = useState<string[]>([
-    'Chỉ trả lời câu hỏi liên quan đến nha khoa',
-    'Luôn xưng hô "em" với khách hàng',
-    'Giữ câu trả lời ngắn gọn, dưới 100 từ',
-    'Nếu không biết, chuyển cho bác sĩ tư vấn',
-    'Luôn hỏi thêm thông tin để tư vấn chính xác',
-  ]);
+export const DEFAULT_AI_RULES = [
+  'Chỉ trả lời câu hỏi liên quan đến nha khoa',
+  'Luôn xưng hô "em" với khách hàng',
+  'Giữ câu trả lời ngắn gọn, dưới 100 từ',
+  'Nếu không biết, chuyển cho bác sĩ tư vấn',
+  'Luôn hỏi thêm thông tin để tư vấn chính xác',
+];
+
+function RulesEditor({ rules, onChange }: { rules: string[]; onChange: (rules: string[]) => void }) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
   const [newRule, setNewRule] = useState('');
+
+  useEffect(() => {
+    if (editIdx !== null) {
+      setEditValue(rules[editIdx] || '');
+    }
+  }, [editIdx, rules]);
 
   const startEdit = (idx: number) => { setEditIdx(idx); setEditValue(rules[idx]); };
   const saveEdit = () => {
     if (editIdx === null) return;
     if (editValue.trim()) {
-      const r = [...rules]; r[editIdx] = editValue.trim(); setRules(r);
+      const r = [...rules]; r[editIdx] = editValue.trim(); onChange(r);
     }
     setEditIdx(null); setEditValue('');
   };
-  const deleteRule = (idx: number) => setRules(rules.filter((_, i) => i !== idx));
+  const deleteRule = (idx: number) => onChange(rules.filter((_, i) => i !== idx));
   const addRule = () => {
     if (!newRule.trim()) return;
-    setRules([...rules, newRule.trim()]); setNewRule('');
+    onChange([...rules, newRule.trim()]); setNewRule('');
   };
 
   return (
@@ -135,9 +142,11 @@ interface Props {
   onImport: () => void;
   onOpenKnowledge: () => void;
   onOpenPromptLibrary: () => void;
+  rules: string[];
+  onRulesChange: (rules: string[]) => void;
 }
 
-export default function PromptEditor({ content, onChange, phrases, scenarios, faqs, categories, onImport, onOpenKnowledge, onOpenPromptLibrary }: Props) {
+export default function PromptEditor({ content, onChange, phrases, scenarios, faqs, categories, onImport, onOpenKnowledge, onOpenPromptLibrary, rules, onRulesChange }: Props) {
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'rules' | 'data'>('edit');
 
   const tabs = [
@@ -207,7 +216,7 @@ export default function PromptEditor({ content, onChange, phrases, scenarios, fa
         )}
 
         {editorTab === 'rules' && (
-          <RulesEditor />
+          <RulesEditor rules={rules} onChange={onRulesChange} />
         )}
 
         {editorTab === 'data' && (
