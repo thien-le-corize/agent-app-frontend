@@ -73,9 +73,26 @@ function getDefaultNodeStyle(type: string) {
   return undefined;
 }
 
-function buildPromptFromReferenceAnalysis(analysis: ReferenceStructureAnalysis) {
+function buildBrandPaletteInstruction(brand?: Brand | null) {
+  if (!brand) {
+    return '- Chưa chọn brand. Nếu có brand, dùng màu brand thay palette cũ của ảnh tham khảo.';
+  }
+
+  return [
+    `- Brand: ${brand.name}`,
+    `- Primary: ${brand.primary_color || 'không rõ'}`,
+    `- Secondary: ${brand.secondary_color || brand.primary_color || 'không rõ'}`,
+    `- Logo: ${brand.logo_url ? 'logo brand đã được cung cấp, dùng để thay logo cũ' : 'chưa có logo'}`,
+    brand.description ? `- Font/nhận diện: ${brand.description}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function buildPromptFromReferenceAnalysis(analysis: ReferenceStructureAnalysis, brand?: Brand | null) {
   const layout = Object.entries(analysis.layout || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
   const colors = Object.entries(analysis.colors || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
+  const colorReplacements = (analysis.colorReplacements || []).map((item, index) =>
+    `${index + 1}. ${item.originalColor || 'màu tham khảo'} (${item.originalUsage || 'không rõ'}) -> ${item.replaceWith || item.brandRole || 'màu brand phù hợp'}: ${item.note || 'đổi sang palette brand'}`
+  ).join('\n');
   const style = Object.entries(analysis.style || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n');
   const texts = (analysis.textItems || []).map((item, index) =>
     `${index + 1}. [${item.role || 'text'} | ${item.position || 'không rõ'}]\nOCR cũ: ${item.originalText || 'không rõ'}\nText mới: ${item.suggestedText || ''}`
@@ -89,6 +106,15 @@ ${layout || '- Giữ bố cục chính từ ảnh tham khảo.'}
 [Màu sắc đã quét]
 ${colors || '- Giữ màu sắc chính từ ảnh tham khảo.'}
 
+[Brand palette bắt buộc]
+${buildBrandPaletteInstruction(brand)}
+
+[Thay màu reference sang brand]
+- Kiểm tra tất cả màu design trong ảnh tham khảo: background, gradient, headline, subheadline, CTA, badge, icon, border, decoration, footer, shadow/tint.
+- Thay toàn bộ palette cũ của ảnh tham khảo bằng màu brand tương ứng. Không giữ màu chính/phụ/nhấn cũ nếu khác brand.
+- Chỉ giữ trắng/đen/xám trung tính và màu tự nhiên của ảnh người/sản phẩm khi cần.
+${colorReplacements || '- Map màu nền/gradient sang màu brand nền/phụ, CTA/badge/icon sang primary/accent, headline/text sang màu brand/text dễ đọc.'}
+
 [Text cần thay]
 ${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt người dùng.'}
 
@@ -96,6 +122,14 @@ ${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt ngư�
 ${style || '- Quảng cáo chuyên nghiệp, sạch, phù hợp nha khoa.'}
 
 Yêu cầu bắt buộc: thay toàn bộ text cũ bằng các text mới ở trên, giữ hierarchy/vị trí tương ứng, output chuyên nghiệp, trang phục kín đáo, non-sexual.`;
+}
+
+function removeGeneratedBrandAnalysis(description?: string | null) {
+  return (description || '')
+    .split('\n')
+    .filter((line) => !/^(Font|Font detail|Font prompt|Style):/i.test(line.trim()))
+    .join('\n')
+    .trim();
 }
 
 // ═══════════════════════════════════════════════
@@ -607,6 +641,9 @@ function WorkflowCanvas() {
             enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
             enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
           }
+          if (currentBrand) {
+            enhancedPrompt += `\n\n[Mandatory brand palette]\n${buildBrandPaletteInstruction(currentBrand)}\nRecolor every non-photo design element from style/reference images to this brand palette: background, gradients, CTA blocks, badges, icons, borders, decorative shapes, headline/subheadline colors, footer bars, and small accents. Do not keep the old reference palette except neutral white/black/gray and natural person/product photo colors.`;
+          }
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
           }
@@ -790,7 +827,7 @@ function WorkflowCanvas() {
         mode: 'replace_subject',
       });
       setReferenceAnalysis(analysis);
-      setPrompt(buildPromptFromReferenceAnalysis(analysis));
+      setPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
       toast.success('Đã tách bố cục, màu sắc và text từ ảnh tham khảo');
     } catch (err) {
       console.error('Analyze reference prompt error:', err);
@@ -798,12 +835,12 @@ function WorkflowCanvas() {
     } finally {
       setAnalyzingReferencePrompt(false);
     }
-  }, [analyzingReferencePrompt]);
+  }, [analyzingReferencePrompt, selectedBrand]);
 
   const handleReferenceAnalysisChange = useCallback((analysis: ReferenceStructureAnalysis) => {
     setReferenceAnalysis(analysis);
-    setPrompt(buildPromptFromReferenceAnalysis(analysis));
-  }, []);
+    setPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
+  }, [selectedBrand]);
 
   const handleAnalyzeBrand = useCallback(async () => {
     if (!selectedBrand?.logo_url || analyzingBrand) {
@@ -814,14 +851,24 @@ function WorkflowCanvas() {
     toast('Đang quét logo brand...', { icon: '🎨' });
     try {
       const analysis = await analyzeBrandAsset({ logo_url: selectedBrand.logo_url });
+      const fontDetail = [
+        analysis.fontAnalysis?.category,
+        analysis.fontAnalysis?.weight,
+        analysis.fontAnalysis?.letterShape,
+        analysis.fontAnalysis?.caseStyle,
+        analysis.fontAnalysis?.spacing,
+      ].filter(Boolean).join(', ');
+      const cleanedDescription = removeGeneratedBrandAnalysis(selectedBrand.description);
       const nextBrand = {
         ...selectedBrand,
         name: analysis.brandName || selectedBrand.name,
         primary_color: analysis.colors?.primary || selectedBrand.primary_color,
         secondary_color: analysis.colors?.secondary || selectedBrand.secondary_color,
         description: [
-          selectedBrand.description,
+          cleanedDescription,
           `Font: ${analysis.fontStyle}`,
+          fontDetail ? `Font detail: ${fontDetail}` : '',
+          analysis.fontAnalysis?.fontPrompt ? `Font prompt: ${analysis.fontAnalysis.fontPrompt}` : '',
           `Style: ${analysis.visualStyle}`,
         ].filter(Boolean).join('\n'),
       };
@@ -841,6 +888,19 @@ function WorkflowCanvas() {
       setAnalyzingBrand(false);
     }
   }, [analyzingBrand, selectedBrand]);
+
+  useEffect(() => {
+    if (!referenceAnalysis) return;
+    setPrompt(buildPromptFromReferenceAnalysis(referenceAnalysis, selectedBrand));
+  }, [
+    referenceAnalysis,
+    selectedBrand?.id,
+    selectedBrand?.name,
+    selectedBrand?.primary_color,
+    selectedBrand?.secondary_color,
+    selectedBrand?.logo_url,
+    selectedBrand?.description,
+  ]);
 
   // Stable ref for callbacks
   const handleRunFlowRef = useRef(handleRunFlow);

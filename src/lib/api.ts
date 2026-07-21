@@ -105,6 +105,13 @@ export interface ReferenceStructureAnalysis {
   prompt: string;
   layout: Record<string, string>;
   colors: Record<string, string>;
+  colorReplacements?: Array<{
+    originalColor: string;
+    originalUsage: string;
+    replaceWith: string;
+    brandRole: string;
+    note: string;
+  }>;
   textItems: Array<{ role: string; originalText: string; suggestedText: string; position: string }>;
   style: Record<string, string>;
 }
@@ -123,6 +130,15 @@ export async function analyzeBrandAsset(payload: {
   brandName: string;
   colors: { primary: string; secondary: string; accent: string };
   fontStyle: string;
+  fontAnalysis?: {
+    category: string;
+    weight: string;
+    letterShape: string;
+    caseStyle: string;
+    spacing: string;
+    comparableFonts: string[];
+    fontPrompt: string;
+  };
   visualStyle: string;
   confidence: string;
 }> {

@@ -86,6 +86,14 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
     onAnalysisChange?.({ ...analysis, textItems: nextItems });
   };
 
+  const updateColorReplacement = (index: number, key: 'originalColor' | 'originalUsage' | 'replaceWith' | 'brandRole' | 'note', value: string) => {
+    if (!analysis) return;
+    const nextItems = (analysis.colorReplacements || []).map((item, i) => (
+      i === index ? { ...item, [key]: value } : item
+    ));
+    onAnalysisChange?.({ ...analysis, colorReplacements: nextItems });
+  };
+
   return (
     <NodeWrapper onDelete={onDelete}>
       <div className="node-card nowheel" style={{ width: analysis ? 560 : 240, maxWidth: analysis ? 'none' : undefined, background: '#141414', border: '1px solid #2a2a2a' }}>
@@ -253,6 +261,43 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
                     </label>
                   ))}
                 </div>
+                {(analysis.colorReplacements || []).length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[9px] font-semibold text-blue-200">Map sang màu brand</p>
+                    {(analysis.colorReplacements || []).map((item, index) => (
+                      <div key={index} className="grid grid-cols-2 gap-1 rounded-md bg-black/25 p-1.5">
+                        <input
+                          value={item.originalColor || ''}
+                          onChange={(e) => updateColorReplacement(index, 'originalColor', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="màu cũ"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                        <input
+                          value={item.replaceWith || item.brandRole || ''}
+                          onChange={(e) => updateColorReplacement(index, 'replaceWith', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="brand.primary"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                        <input
+                          value={item.originalUsage || ''}
+                          onChange={(e) => updateColorReplacement(index, 'originalUsage', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="vị trí dùng màu"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                        <input
+                          value={item.note || ''}
+                          onChange={(e) => updateColorReplacement(index, 'note', e.target.value)}
+                          onPointerDown={e => e.stopPropagation()}
+                          placeholder="ghi chú"
+                          className="rounded bg-black/30 px-1.5 py-1 text-[9px] text-gray-300 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
