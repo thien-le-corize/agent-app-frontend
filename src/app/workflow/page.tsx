@@ -111,9 +111,11 @@ ${buildBrandPaletteInstruction(brand)}
 
 [Thay màu reference sang brand]
 - Kiểm tra tất cả màu design trong ảnh tham khảo: background, gradient, headline, subheadline, CTA, badge, icon, border, decoration, footer, shadow/tint.
+- Kiểm tra cả màu chữ lớn/display typography/tên dịch vụ hoặc sản phẩm trong ảnh tham khảo. Ví dụ chữ headline/product name màu vàng/gold phải đổi sang màu brand, không giữ màu cũ.
 - Thay toàn bộ palette cũ của ảnh tham khảo bằng màu brand tương ứng. Không giữ màu chính/phụ/nhấn cũ nếu khác brand.
+- Headline, product/service name, chữ display lớn dùng brand primary hoặc secondary; CTA/badge/icon dùng primary/accent; text nhỏ dùng màu dễ đọc theo brand.
 - Chỉ giữ trắng/đen/xám trung tính và màu tự nhiên của ảnh người/sản phẩm khi cần.
-${colorReplacements || '- Map màu nền/gradient sang màu brand nền/phụ, CTA/badge/icon sang primary/accent, headline/text sang màu brand/text dễ đọc.'}
+${colorReplacements || '- Map màu nền/gradient sang màu brand nền/phụ, CTA/badge/icon sang primary/accent, headline/display text/product name sang primary hoặc secondary của brand.'}
 
 [Text cần thay]
 ${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt người dùng.'}
@@ -642,7 +644,7 @@ function WorkflowCanvas() {
             enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
           }
           if (currentBrand) {
-            enhancedPrompt += `\n\n[Mandatory brand palette]\n${buildBrandPaletteInstruction(currentBrand)}\nRecolor every non-photo design element from style/reference images to this brand palette: background, gradients, CTA blocks, badges, icons, borders, decorative shapes, headline/subheadline colors, footer bars, and small accents. Do not keep the old reference palette except neutral white/black/gray and natural person/product photo colors.`;
+            enhancedPrompt += `\n\n[Mandatory brand palette]\n${buildBrandPaletteInstruction(currentBrand)}\nRecolor every non-photo design element from style/reference images to this brand palette: background, gradients, CTA blocks, badges, icons, borders, decorative shapes, headline/subheadline/body text colors, large display typography/product or service name colors, footer bars, and small accents. If the reference has gold/yellow display text such as a product name, convert that typography color to brand primary or secondary. Do not keep old reference colors unless they match the current brand palette. Neutral white/black/gray and natural person/product photo colors may remain only when needed.`;
           }
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
