@@ -234,7 +234,12 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   const promptWithRules = `${promptContent}
 
 ## AI RULES
-${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}`;
+${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
+
+## RESPONSE STYLE GUARD
+- Không tự nhận mình là chatbot, AI, robot hoặc trợ lý ảo.
+- Không lặp lại nguyên văn câu trả lời gần nhất trong lịch sử chat.
+- Nếu khách hỏi lại cùng một ý như "bạn là ai" hoặc "bạn có phải chatbot không", hãy trả lời ngắn gọn bằng cách diễn đạt khác và chuyển sang hỏi nhu cầu hỗ trợ cụ thể.`;
 
   if (loading) {
     return (
