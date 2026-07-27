@@ -42,7 +42,7 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
               onPointerDown={(event) => event.stopPropagation()}
               disabled={generating}
               className="ml-auto rounded-md border border-blue-400/20 bg-blue-400/10 p-1 text-blue-200 hover:bg-blue-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Tạo lại storybook"
+              title="Tạo lại ảnh tham chiếu"
             >
               {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             </button>

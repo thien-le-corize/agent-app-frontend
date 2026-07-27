@@ -262,6 +262,26 @@ function getStoryboardImageUrl(
   return nodeData?.imageUrl || '';
 }
 
+function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number, totalFrames: number) {
+  const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
+  const timingStart = Math.round((frameIndex / totalFrames) * 10);
+  const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 10);
+
+  return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
+Create one polished cinematic reference image for a Google Omni video workflow.
+This image represents the visual beat from ${timingStart}s to ${timingEnd}s.
+
+[Full approved script]
+${script}
+
+[Frame requirement]
+- Make this frame visually distinct from the other frames.
+- Keep the same subject identity/product from the input image references.
+- Professional dental/healthcare advertising style, realistic lighting, clean composition.
+- No text overlays unless the script explicitly requires readable text.
+- Family-safe, modest styling, non-sexual, commercial-quality still frame.`;
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -518,10 +538,11 @@ function WorkflowCanvas() {
       const generateNodes = nodes.filter((n) => n.type === 'generate' && connectedNodeIds.has(n.id));
       const aiPromptNodes = nodes.filter((n) => n.type === 'aiprompt' && connectedNodeIds.has(n.id));
       const storyboardNodes = nodes.filter((n) => n.type === 'storyboard' && connectedNodeIds.has(n.id));
-      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...generateNodes];
+      const storyboardImageNodes = nodes.filter((n) => n.type === 'storyboardImage' && connectedNodeIds.has(n.id));
+      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...storyboardImageNodes, ...generateNodes];
 
       if (executableNodes.length === 0) {
-        toast.error('Thêm node Storybook hoặc Generate vào flow. Video chỉ chạy khi bấm Tạo Video.');
+        toast.error('Thêm node Ảnh Storybook hoặc Generate vào flow. Video chỉ chạy khi bấm Tạo Video.');
         setGenerating(false);
         return;
       }
@@ -711,6 +732,50 @@ function WorkflowCanvas() {
           setStoryboardImages((prev) => ({ ...prev, [execNode.id]: storyboardImageUrls }));
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard, imageUrls: storyboardImageUrls, status: 'done', generating: false } } : n));
           toast.success('✅ Storybook xong');
+        } else if (execNode.type === 'storyboardImage') {
+          let script = nodeResults.__video_script || currentPrompt;
+          const frameIndex = typeof (execNode.data as any)?.index === 'number'
+            ? (execNode.data as any).index
+            : storyboardImageNodes.findIndex((node) => node.id === execNode.id);
+          const totalFrames = Math.max(storyboardImageNodes.length, 1);
+
+          if (!nodeResults.__video_script) {
+            toast('Đang tự viết kịch bản video...', { icon: '🎬' });
+            const { storyboard } = await generateVideoStoryboard({
+              script: nodePrompt || currentPrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
+              image_urls: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
+            });
+            script = storyboard;
+            nodeResults.__video_script = storyboard;
+            setPrompt(storyboard);
+            toast.success('Đã đưa kịch bản vào Prompt');
+          }
+
+          toast(`Đang tạo ảnh tham chiếu ${frameIndex + 1}/${totalFrames}...`, { icon: '🖼️' });
+          const res = await generateImage({
+            ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
+            user_input: buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames),
+            reference_images: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
+            input_images: inputImages.length > 0 ? inputImages.slice(0, 4) : undefined,
+            variation_index: frameIndex + 1,
+          });
+
+          if (res.status === 'failed' || !res.result_url) {
+            setNodes((nds) => nds.map((n) => n.id === execNode.id
+              ? { ...n, data: { ...n.data, status: 'error', generating: false, result: res } }
+              : n
+            ));
+            toast.error(res.error_message || 'Tạo ảnh tham chiếu thất bại');
+            continue;
+          }
+
+          nodeResults[execNode.id] = res.result_url;
+          allResults.push(res);
+          setNodes((nds) => nds.map((n) => n.id === execNode.id
+            ? { ...n, data: { ...n.data, imageUrl: res.result_url, status: 'done', generating: false, result: res } }
+            : n
+          ));
+          toast.success(`✅ Ảnh tham chiếu ${frameIndex + 1} xong`);
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
@@ -1359,8 +1424,8 @@ function WorkflowCanvas() {
             ...node.data,
             index,
             imageUrl: sourceStoryboardId ? storyboardImages[sourceStoryboardId]?.[index] || nodeData?.imageUrl || '' : nodeData?.imageUrl || '',
-            generating: sourceGenerating,
-            onRegenerate: sourceStoryboardId ? () => regenerateStoryboardNodeRef.current(sourceStoryboardId) : undefined,
+            generating: sourceGenerating || Boolean(nodeData?.generating),
+            onRegenerate: sourceStoryboardId ? () => regenerateStoryboardNodeRef.current(sourceStoryboardId) : () => handleRunFlowRef.current(1),
             onDelete: deleteHandler,
           } };
         }
