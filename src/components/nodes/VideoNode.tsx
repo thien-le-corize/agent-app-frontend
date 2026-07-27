@@ -11,6 +11,7 @@ interface VideoNodeProps {
     aspectRatio?: '16:9' | '9:16';
     durationSeconds?: number;
     voiceStyle?: string;
+    videoStyle?: 'tvc' | 'intro';
     imageUrl?: string;
     generating?: boolean;
     result?: { status: string; video_url?: string; error_message?: string };
@@ -19,11 +20,13 @@ interface VideoNodeProps {
       aspectRatio: '16:9' | '9:16';
       durationSeconds: number;
       voiceStyle: string;
+      videoStyle: 'tvc' | 'intro';
     }) => void;
     onOptionsChange?: (options: {
       aspectRatio: '16:9' | '9:16';
       durationSeconds: number;
       voiceStyle: string;
+      videoStyle: 'tvc' | 'intro';
     }) => void;
     onDelete?: () => void;
     canGenerate?: boolean;
@@ -35,6 +38,7 @@ function VideoNode({ data }: VideoNodeProps) {
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(data.aspectRatio || '16:9');
   const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 10);
   const [voiceStyle, setVoiceStyle] = useState(data.voiceStyle || 'Vietnamese female voice, warm Northern accent');
+  const [videoStyle, setVideoStyle] = useState<'tvc' | 'intro'>(data.videoStyle || 'tvc');
   const [showVideo, setShowVideo] = useState(false);
 
   const isCompleted = result?.status === 'completed' && result?.video_url;
@@ -59,7 +63,7 @@ function VideoNode({ data }: VideoNodeProps) {
                 onChange={(e) => {
                   const next = e.target.value as '16:9' | '9:16';
                   setAspectRatio(next);
-                  data.onOptionsChange?.({ aspectRatio: next, durationSeconds, voiceStyle });
+                  data.onOptionsChange?.({ aspectRatio: next, durationSeconds, voiceStyle, videoStyle });
                 }}
                 className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
                 onPointerDown={e => e.stopPropagation()}
@@ -75,7 +79,7 @@ function VideoNode({ data }: VideoNodeProps) {
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   setDurationSeconds(next);
-                  data.onOptionsChange?.({ aspectRatio, durationSeconds: next, voiceStyle });
+                  data.onOptionsChange?.({ aspectRatio, durationSeconds: next, voiceStyle, videoStyle });
                 }}
                 className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
                 onPointerDown={e => e.stopPropagation()}
@@ -86,13 +90,29 @@ function VideoNode({ data }: VideoNodeProps) {
               </select>
             </div>
             <div className="col-span-2">
+              <label className="block text-[9px] text-gray-600 mb-1">Kiểu video</label>
+              <select
+                value={videoStyle}
+                onChange={(e) => {
+                  const next = e.target.value as 'tvc' | 'intro';
+                  setVideoStyle(next);
+                  data.onOptionsChange?.({ aspectRatio, durationSeconds, voiceStyle, videoStyle: next });
+                }}
+                className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <option value="tvc">TVC quảng cáo</option>
+                <option value="intro">Giới thiệu tự nhiên</option>
+              </select>
+            </div>
+            <div className="col-span-2">
               <label className="block text-[9px] text-gray-600 mb-1">Voice tiếng Việt</label>
               <select
                 value={voiceStyle}
                 onChange={(e) => {
                   const next = e.target.value;
                   setVoiceStyle(next);
-                  data.onOptionsChange?.({ aspectRatio, durationSeconds, voiceStyle: next });
+                  data.onOptionsChange?.({ aspectRatio, durationSeconds, voiceStyle: next, videoStyle });
                 }}
                 className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
                 onPointerDown={e => e.stopPropagation()}
@@ -160,7 +180,7 @@ function VideoNode({ data }: VideoNodeProps) {
           <div className="p-2">
             <button
               onPointerDown={e => e.stopPropagation()}
-              onClick={() => onGenerate?.({ prompt: '', aspectRatio, durationSeconds, voiceStyle })}
+              onClick={() => onGenerate?.({ prompt: '', aspectRatio, durationSeconds, voiceStyle, videoStyle })}
               disabled={generating}
               className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-white transition disabled:opacity-60"
               style={{ background: generating ? '#9f1239' : 'linear-gradient(135deg, #e11d48, #be123c)' }}

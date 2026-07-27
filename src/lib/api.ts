@@ -195,6 +195,7 @@ export async function generateVideo(payload: {
   aspect_ratio?: '16:9' | '9:16';
   duration_seconds?: number;
   voice_style?: string;
+  video_style?: 'tvc' | 'intro';
 }): Promise<VideoGeneration> {
   const { data } = await api.post('/video-generations', payload);
   return data;

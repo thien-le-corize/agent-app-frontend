@@ -390,6 +390,7 @@ function WorkflowCanvas() {
     aspectRatio: '16:9' | '9:16';
     durationSeconds: number;
     voiceStyle: string;
+    videoStyle: 'tvc' | 'intro';
   }>>({});
   const [creatingStoryboardFromPrompt, setCreatingStoryboardFromPrompt] = useState<Record<string, boolean>>({});
 
@@ -941,6 +942,7 @@ function WorkflowCanvas() {
             aspectRatio: '16:9' as const,
             durationSeconds: 10,
             voiceStyle: 'Vietnamese female voice, warm Northern accent',
+            videoStyle: 'tvc' as const,
           };
           const videoRes = await generateVideo({
             prompt: nodePrompt || 'Create a smooth animated video from these images',
@@ -948,6 +950,7 @@ function WorkflowCanvas() {
             aspect_ratio: nodeVideoOptions.aspectRatio,
             duration_seconds: nodeVideoOptions.durationSeconds,
             voice_style: nodeVideoOptions.voiceStyle,
+            video_style: nodeVideoOptions.videoStyle,
           });
 
           const completedVideo = await waitForVideoGeneration(videoRes.id);
@@ -1034,6 +1037,7 @@ function WorkflowCanvas() {
     aspectRatio?: '16:9' | '9:16';
     durationSeconds?: number;
     voiceStyle?: string;
+    videoStyle?: 'tvc' | 'intro';
   }, videoNodeId?: string) => {
     let nextPrompt = override?.prompt?.trim() || videoPrompt.trim();
     const videoImageUrls: string[] = [];
@@ -1111,6 +1115,7 @@ function WorkflowCanvas() {
         aspect_ratio: override?.aspectRatio || '16:9',
         duration_seconds: override?.durationSeconds || 10,
         voice_style: override?.voiceStyle || 'Vietnamese female voice, warm Northern accent',
+        video_style: override?.videoStyle || 'tvc',
       });
       const completedVideo = await waitForVideoGeneration(res.id);
       setVideoResult(completedVideo);
@@ -1576,6 +1581,7 @@ function WorkflowCanvas() {
             aspectRatio: '16:9',
             durationSeconds: 10,
             voiceStyle: 'Vietnamese female voice, warm Northern accent',
+            videoStyle: 'tvc',
           };
           return { ...node, data: {
             prompt: videoPrompt,
@@ -1588,6 +1594,7 @@ function WorkflowCanvas() {
               aspectRatio: '16:9' | '9:16';
               durationSeconds: number;
               voiceStyle: string;
+              videoStyle: 'tvc' | 'intro';
             }) => {
               setVideoPrompt(next.prompt);
               setVideoOptions(prev => ({
@@ -1596,6 +1603,7 @@ function WorkflowCanvas() {
                   aspectRatio: next.aspectRatio,
                   durationSeconds: next.durationSeconds,
                   voiceStyle: next.voiceStyle,
+                  videoStyle: next.videoStyle,
                 },
               }));
               handleGenerateVideoRef.current(next, node.id);
@@ -1604,6 +1612,7 @@ function WorkflowCanvas() {
               aspectRatio: '16:9' | '9:16';
               durationSeconds: number;
               voiceStyle: string;
+              videoStyle: 'tvc' | 'intro';
             }) => setVideoOptions(prev => ({ ...prev, [node.id]: nextOptions })),
             canGenerate: true,
             onDelete: deleteHandler
