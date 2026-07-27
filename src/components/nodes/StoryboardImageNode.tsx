@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface StoryboardImageNodeProps {
@@ -68,9 +68,32 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
 
         <div className="p-2">
           {imageUrl ? (
-            <div className="overflow-hidden rounded-lg border border-blue-400/20 bg-[#0b111a]">
+            <div className="group relative overflow-hidden rounded-lg border border-blue-400/20 bg-[#0b111a]">
               <div className="aspect-video w-full overflow-hidden">
                 <img src={imageUrl} alt={sheetMode ? 'Storyboard tổng hợp' : `Ảnh tham chiếu ${index + 1}`} className="h-full w-full object-cover" />
+              </div>
+              <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                <a
+                  href={imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  className="rounded-md bg-black/65 p-1.5 text-white backdrop-blur hover:bg-black/80"
+                  title="Mở ảnh"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <a
+                  href={imageUrl}
+                  download={`storyboard-${index + 1}.png`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  className="rounded-md bg-black/65 p-1.5 text-white backdrop-blur hover:bg-black/80"
+                  title="Tải ảnh"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </a>
               </div>
             </div>
           ) : (
