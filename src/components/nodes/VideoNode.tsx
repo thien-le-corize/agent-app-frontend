@@ -32,7 +32,6 @@ interface VideoNodeProps {
 
 function VideoNode({ data }: VideoNodeProps) {
   const { imageUrl, generating = false, result, onGenerate, onDelete, canGenerate = false } = data;
-  const [localPrompt, setLocalPrompt] = useState(data.prompt || '');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(data.aspectRatio || '16:9');
   const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 8);
   const [voiceStyle, setVoiceStyle] = useState(data.voiceStyle || 'Vietnamese female voice, warm Northern accent');
@@ -52,16 +51,6 @@ function VideoNode({ data }: VideoNodeProps) {
         </div>
 
         <div className="p-0">
-          {/* Textarea prompt */}
-          <textarea
-            value={localPrompt}
-            onChange={e => setLocalPrompt(e.target.value)}
-            className="w-full bg-transparent text-[11px] text-gray-300 leading-relaxed outline-none resize-none px-3 py-2.5"
-            style={{ minHeight: 64, borderBottom: '1px solid #1e1e1e' }}
-            placeholder="Mô tả video muốn tạo..."
-            onPointerDown={e => e.stopPropagation()}
-          />
-
           <div className="grid grid-cols-2 gap-2 px-2 py-2" style={{ borderBottom: '1px solid #1e1e1e' }}>
             <div>
               <label className="block text-[9px] text-gray-600 mb-1">Tỷ lệ</label>
@@ -171,7 +160,7 @@ function VideoNode({ data }: VideoNodeProps) {
           <div className="p-2">
             <button
               onPointerDown={e => e.stopPropagation()}
-              onClick={() => onGenerate?.({ prompt: localPrompt, aspectRatio, durationSeconds, voiceStyle })}
+              onClick={() => onGenerate?.({ prompt: '', aspectRatio, durationSeconds, voiceStyle })}
               disabled={generating}
               className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-white transition disabled:opacity-60"
               style={{ background: generating ? '#9f1239' : 'linear-gradient(135deg, #e11d48, #be123c)' }}
