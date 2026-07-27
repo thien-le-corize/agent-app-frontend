@@ -276,7 +276,11 @@ ${script}
 
 [Frame requirement]
 - Make this frame visually distinct from the other frames.
-- Keep the same subject identity/product from the input image references.
+- Character consistency is mandatory: use the exact same person/people from the input image references across every reference frame.
+- Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
+- Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
+- Only change camera angle, pose, lighting, background, and scene action as needed for this script beat while keeping the subject recognizably identical.
+- If the input contains a product/object, preserve its shape, material, label, color, and key details exactly.
 - Professional dental/healthcare advertising style, realistic lighting, clean composition.
 - No text overlays unless the script explicitly requires readable text.
 - Family-safe, modest styling, non-sexual, commercial-quality still frame.`;
