@@ -264,14 +264,14 @@ function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number,
   if (totalFrames === 1) {
     return `[Full video storyboard sheet <FIRST_FRAME>]
 Create ONE single polished storyboard/contact-sheet image for a Google Omni video workflow.
-The image must contain the entire 0-8 second video plan in one visual storyboard sheet.
+The image must contain the entire 0-10 second video plan in one visual storyboard sheet.
 
 [Full approved script]
 ${script}
 
 [Storyboard sheet requirement]
 - Create a clean storyboard sheet inside one image with up to 6 panels/keyframes, preferably a 2x3 grid.
-- The panels should cover the full 0-8 second video: opening, first action, development, detail/reaction, climax/CTA, closing.
+- The panels should cover the full 0-10 second video: opening, first action, development, detail/reaction, climax/CTA, closing.
 - If the script is very simple, use fewer panels, but never more than 6.
 - Each panel must show a different moment from the script with consistent subject identity, wardrobe, setting style, lighting, and color grade.
 - Use cinematic composition, clear subject placement, and readable visual progression from left to right, top to bottom.
@@ -289,7 +289,7 @@ ${script}
   const segmentRole = frameIndex === 0
     ? 'Opening beat: establish the scene, main subject, wardrobe, environment, and starting action from <FIRST_FRAME>.'
     : frameIndex === totalFrames - 1
-      ? 'Closing beat: show the final action, CTA/product/service emphasis, or resolved ending of the 8-second video.'
+      ? 'Closing beat: show the final action, CTA/product/service emphasis, or resolved ending of the 10-second video.'
       : 'Development beat: show the main action, conversation, supporting subjects, product/prop detail, or closer reaction progressing naturally from the opening.';
 
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
@@ -934,7 +934,7 @@ function WorkflowCanvas() {
           toast('Đang tạo video Google Omni...', { icon: '🎬' });
           const nodeVideoOptions = currentVideoOptions[execNode.id] || {
             aspectRatio: '16:9' as const,
-            durationSeconds: 8,
+            durationSeconds: 10,
             voiceStyle: 'Vietnamese female voice, warm Northern accent',
           };
           const videoRes = await generateVideo({
@@ -1103,7 +1103,7 @@ function WorkflowCanvas() {
         prompt: nextPrompt || prompt,
         input_image_urls: omniImageUrls.length > 0 ? omniImageUrls : undefined,
         aspect_ratio: override?.aspectRatio || '16:9',
-        duration_seconds: override?.durationSeconds || 8,
+        duration_seconds: override?.durationSeconds || 10,
         voice_style: override?.voiceStyle || 'Vietnamese female voice, warm Northern accent',
       });
       const completedVideo = await waitForVideoGeneration(res.id);
@@ -1568,7 +1568,7 @@ function WorkflowCanvas() {
         if (node.type === 'video') {
           const options = videoOptions[node.id] || {
             aspectRatio: '16:9',
-            durationSeconds: 8,
+            durationSeconds: 10,
             voiceStyle: 'Vietnamese female voice, warm Northern accent',
           };
           return { ...node, data: {

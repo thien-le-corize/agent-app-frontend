@@ -33,7 +33,7 @@ interface VideoNodeProps {
 function VideoNode({ data }: VideoNodeProps) {
   const { imageUrl, generating = false, result, onGenerate, onDelete, canGenerate = false } = data;
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(data.aspectRatio || '16:9');
-  const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 8);
+  const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 10);
   const [voiceStyle, setVoiceStyle] = useState(data.voiceStyle || 'Vietnamese female voice, warm Northern accent');
   const [showVideo, setShowVideo] = useState(false);
 
