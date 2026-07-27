@@ -264,8 +264,8 @@ function getStoryboardImageUrl(
 
 function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number, totalFrames: number) {
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
-  const timingStart = Math.round((frameIndex / totalFrames) * 10);
-  const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 10);
+  const timingStart = Math.round((frameIndex / totalFrames) * 8);
+  const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 8);
 
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
 Create one polished cinematic reference image for a Google Omni video workflow.
