@@ -314,6 +314,7 @@ function WorkflowCanvas() {
     durationSeconds: number;
     voiceStyle: string;
   }>>({});
+  const [creatingStoryboardFromPrompt, setCreatingStoryboardFromPrompt] = useState<Record<string, boolean>>({});
 
   // Text notes
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
@@ -992,6 +993,99 @@ function WorkflowCanvas() {
     }
   }, [analyzingBrand, selectedBrand]);
 
+  const collectImageUrlsForNode = useCallback(async (targetNodeId: string): Promise<string[]> => {
+    const upstreamNodes = getUpstreamNodes(targetNodeId, edges, nodes);
+    const imageUrls: string[] = [];
+
+    for (const upstreamNode of upstreamNodes) {
+      if (upstreamNode.type === 'image') {
+        appendUnique(imageUrls, imageNodeLibraryUrls[upstreamNode.id] || []);
+        for (const file of imageNodeFiles[upstreamNode.id] || []) {
+          const { url } = await uploadFile(file);
+          appendUnique(imageUrls, [url]);
+        }
+      } else if (upstreamNode.type === 'input') {
+        appendUnique(imageUrls, inputNodeLibraryUrls[upstreamNode.id] || []);
+        for (const file of inputNodeFiles[upstreamNode.id] || []) {
+          const { url } = await uploadFile(file);
+          appendUnique(imageUrls, [url]);
+        }
+      } else if (upstreamNode.type === 'references') {
+        appendUnique(imageUrls, referenceLibraryUrls);
+        for (const file of referenceFiles) {
+          const { url } = await uploadFile(file);
+          appendUnique(imageUrls, [url]);
+        }
+      }
+    }
+
+    return imageUrls;
+  }, [
+    edges,
+    nodes,
+    imageNodeFiles,
+    imageNodeLibraryUrls,
+    inputNodeFiles,
+    inputNodeLibraryUrls,
+    referenceFiles,
+    referenceLibraryUrls,
+  ]);
+
+  const handleCreateStoryboardFromPrompt = useCallback(async (promptNodeId: string, script: string) => {
+    const cleanScript = script.trim();
+    if (!cleanScript) {
+      toast.error('Nhập ý tưởng video trước');
+      return;
+    }
+
+    const targetStoryboardNodes = edges
+      .filter((edge) => edge.source === promptNodeId)
+      .map((edge) => nodes.find((node) => node.id === edge.target))
+      .filter((node): node is Node => Boolean(node) && node?.type === 'storyboard');
+
+    if (targetStoryboardNodes.length === 0) {
+      toast.error('Nối Prompt vào node Storybook trước');
+      return;
+    }
+
+    setCreatingStoryboardFromPrompt((prev) => ({ ...prev, [promptNodeId]: true }));
+    toast('Đang tạo kịch bản Storybook...', { icon: '🎬' });
+
+    try {
+      for (const storyboardNode of targetStoryboardNodes) {
+        setNodes((nds) => nds.map((node) => node.id === storyboardNode.id
+          ? { ...node, data: { ...node.data, status: 'running', generating: true } }
+          : node
+        ));
+
+        const imageUrls = await collectImageUrlsForNode(storyboardNode.id);
+        const { storyboard } = await generateVideoStoryboard({
+          script: cleanScript,
+          image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+        });
+
+        setStoryboards((prev) => ({ ...prev, [storyboardNode.id]: storyboard }));
+        setNodes((nds) => nds.map((node) => node.id === storyboardNode.id
+          ? { ...node, data: { ...node.data, storyboard, status: 'done', generating: false } }
+          : node
+        ));
+      }
+
+      toast.success('Đã tạo kịch bản và đưa vào Storybook');
+    } catch (error) {
+      console.error('Create storyboard from prompt error:', error);
+      targetStoryboardNodes.forEach((storyboardNode) => {
+        setNodes((nds) => nds.map((node) => node.id === storyboardNode.id
+          ? { ...node, data: { ...node.data, status: 'error', generating: false } }
+          : node
+        ));
+      });
+      toast.error('Tạo kịch bản thất bại');
+    } finally {
+      setCreatingStoryboardFromPrompt((prev) => ({ ...prev, [promptNodeId]: false }));
+    }
+  }, [edges, nodes, setNodes, collectImageUrlsForNode]);
+
   useEffect(() => {
     if (!referenceAnalysis) return;
     setPrompt(buildPromptFromReferenceAnalysis(referenceAnalysis, selectedBrand));
@@ -1012,6 +1106,8 @@ function WorkflowCanvas() {
   handleRegenerateRef.current = handleRegenerate;
   const handleGenerateVideoRef = useRef(handleGenerateVideo);
   handleGenerateVideoRef.current = handleGenerateVideo;
+  const handleCreateStoryboardFromPromptRef = useRef(handleCreateStoryboardFromPrompt);
+  handleCreateStoryboardFromPromptRef.current = handleCreateStoryboardFromPrompt;
   const deleteNodeRef = useRef(deleteNode);
   deleteNodeRef.current = deleteNode;
 
@@ -1090,7 +1186,19 @@ function WorkflowCanvas() {
           } };
         }
         if (node.type === 'prompt') {
-          return { ...node, data: { prompt, onChange: setPrompt, onDelete: deleteHandler } };
+          const hasStoryboardTarget = edges.some((edge) => {
+            const targetNode = nds.find((candidate) => candidate.id === edge.target);
+            return edge.source === node.id && targetNode?.type === 'storyboard';
+          });
+          return { ...node, data: {
+            prompt,
+            creatingStoryboard: Boolean(creatingStoryboardFromPrompt[node.id]),
+            onChange: setPrompt,
+            onCreateStoryboard: hasStoryboardTarget
+              ? (value: string) => handleCreateStoryboardFromPromptRef.current(node.id, value)
+              : undefined,
+            onDelete: deleteHandler
+          } };
         }
         if (node.type === 'storyboard') {
           const storyboard = storyboards[node.id] || (node.data as any)?.storyboard || '';
@@ -1159,7 +1267,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,

@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Handle, NodeResizer, Position } from 'reactflow';
-import { MessageSquare, Check, ChevronDown, ClipboardList } from 'lucide-react';
+import { MessageSquare, Check, ChevronDown, ClipboardList, Loader2, Wand2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface PromptNodeProps {
   selected?: boolean;
   data: {
     prompt?: string;
+    creatingStoryboard?: boolean;
     onChange?: (val: string) => void;
+    onCreateStoryboard?: (prompt: string) => void;
     onDelete?: () => void;
   };
 }
@@ -47,7 +49,7 @@ Output phải là quảng cáo chuyên nghiệp, trang phục kín đáo, non-se
 ];
 
 function PromptNode({ data, selected }: PromptNodeProps) {
-  const { prompt = '', onChange, onDelete } = data;
+  const { prompt = '', creatingStoryboard = false, onChange, onCreateStoryboard, onDelete } = data;
   const [localPrompt, setLocalPrompt] = useState(prompt);
   const [templateOpen, setTemplateOpen] = useState(false);
 
@@ -83,6 +85,22 @@ function PromptNode({ data, selected }: PromptNodeProps) {
           <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
           <span className="text-gray-200 font-semibold text-[11px]">Prompt</span>
           <div className="flex items-center gap-1.5 ml-auto">
+            {onCreateStoryboard && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateStoryboard(localPrompt);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                disabled={creatingStoryboard || localPrompt.trim().length === 0}
+                className="flex items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[9px] font-medium text-sky-300 hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Tạo kịch bản và đưa vào node Storybook"
+              >
+                {creatingStoryboard ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                Tạo kịch bản
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
