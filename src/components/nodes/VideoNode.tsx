@@ -8,10 +8,23 @@ import NodeWrapper from './NodeWrapper';
 interface VideoNodeProps {
   data: {
     prompt?: string;
+    aspectRatio?: '16:9' | '9:16';
+    durationSeconds?: number;
+    voiceStyle?: string;
     imageUrl?: string;
     generating?: boolean;
     result?: { status: string; video_url?: string; error_message?: string };
-    onGenerate?: (videoPrompt: string) => void;
+    onGenerate?: (options: {
+      prompt: string;
+      aspectRatio: '16:9' | '9:16';
+      durationSeconds: number;
+      voiceStyle: string;
+    }) => void;
+    onOptionsChange?: (options: {
+      aspectRatio: '16:9' | '9:16';
+      durationSeconds: number;
+      voiceStyle: string;
+    }) => void;
     onDelete?: () => void;
     canGenerate?: boolean;
   };
@@ -20,6 +33,9 @@ interface VideoNodeProps {
 function VideoNode({ data }: VideoNodeProps) {
   const { imageUrl, generating = false, result, onGenerate, onDelete, canGenerate = false } = data;
   const [localPrompt, setLocalPrompt] = useState(data.prompt || '');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(data.aspectRatio || '16:9');
+  const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 8);
+  const [voiceStyle, setVoiceStyle] = useState(data.voiceStyle || 'Vietnamese female voice, warm Northern accent');
   const [showVideo, setShowVideo] = useState(false);
 
   const isCompleted = result?.status === 'completed' && result?.video_url;
@@ -45,6 +61,62 @@ function VideoNode({ data }: VideoNodeProps) {
             placeholder="Mô tả video muốn tạo..."
             onPointerDown={e => e.stopPropagation()}
           />
+
+          <div className="grid grid-cols-2 gap-2 px-2 py-2" style={{ borderBottom: '1px solid #1e1e1e' }}>
+            <div>
+              <label className="block text-[9px] text-gray-600 mb-1">Tỷ lệ</label>
+              <select
+                value={aspectRatio}
+                onChange={(e) => {
+                  const next = e.target.value as '16:9' | '9:16';
+                  setAspectRatio(next);
+                  data.onOptionsChange?.({ aspectRatio: next, durationSeconds, voiceStyle });
+                }}
+                className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <option value="16:9">16:9 ngang</option>
+                <option value="9:16">9:16 dọc</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[9px] text-gray-600 mb-1">Số giây</label>
+              <select
+                value={durationSeconds}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setDurationSeconds(next);
+                  data.onOptionsChange?.({ aspectRatio, durationSeconds: next, voiceStyle });
+                }}
+                className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
+                onPointerDown={e => e.stopPropagation()}
+              >
+                {[4, 6, 8, 10].map((seconds) => (
+                  <option key={seconds} value={seconds}>{seconds}s</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-[9px] text-gray-600 mb-1">Voice tiếng Việt</label>
+              <select
+                value={voiceStyle}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setVoiceStyle(next);
+                  data.onOptionsChange?.({ aspectRatio, durationSeconds, voiceStyle: next });
+                }}
+                className="w-full rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] px-2 py-1.5 text-[10px] text-gray-300 outline-none"
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <option value="No voiceover, music and natural ambient sound only">Không voice</option>
+                <option value="Vietnamese female voice, warm Northern accent">Nữ miền Bắc</option>
+                <option value="Vietnamese male voice, calm Northern accent">Nam miền Bắc</option>
+                <option value="Vietnamese female voice, friendly Southern accent">Nữ miền Nam</option>
+                <option value="Vietnamese male voice, confident Southern accent">Nam miền Nam</option>
+                <option value="Vietnamese neutral studio voice, clear advertising narration">Giọng quảng cáo trung tính</option>
+              </select>
+            </div>
+          </div>
 
           {/* Input image preview */}
           {imageUrl && (
@@ -99,7 +171,7 @@ function VideoNode({ data }: VideoNodeProps) {
           <div className="p-2">
             <button
               onPointerDown={e => e.stopPropagation()}
-              onClick={() => onGenerate?.(localPrompt)}
+              onClick={() => onGenerate?.({ prompt: localPrompt, aspectRatio, durationSeconds, voiceStyle })}
               disabled={generating}
               className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-white transition disabled:opacity-60"
               style={{ background: generating ? '#9f1239' : 'linear-gradient(135deg, #e11d48, #be123c)' }}

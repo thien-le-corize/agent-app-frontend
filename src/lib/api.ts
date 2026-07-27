@@ -192,6 +192,9 @@ export async function generateVideo(payload: {
   prompt: string;
   input_image_url?: string;
   input_image_urls?: string[];
+  aspect_ratio?: '16:9' | '9:16';
+  duration_seconds?: number;
+  voice_style?: string;
 }): Promise<VideoGeneration> {
   const { data } = await api.post('/video-generations', payload);
   return data;

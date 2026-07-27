@@ -309,6 +309,11 @@ function WorkflowCanvas() {
   const [videoPrompt, setVideoPrompt] = useState('');
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [videoResult, setVideoResult] = useState<VideoGeneration | null>(null);
+  const [videoOptions, setVideoOptions] = useState<Record<string, {
+    aspectRatio: '16:9' | '9:16';
+    durationSeconds: number;
+    voiceStyle: string;
+  }>>({});
 
   // Text notes
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
@@ -392,6 +397,7 @@ function WorkflowCanvas() {
     setPrompt('');
     setResults([]);
     setVideoResult(null);
+    setVideoOptions({});
     setTextNotes({});
     setLayoutConfigs({});
     setStoryboards({});
@@ -446,6 +452,8 @@ function WorkflowCanvas() {
   layoutConfigsRef.current = layoutConfigs;
   const storyboardsRef = useRef(storyboards);
   storyboardsRef.current = storyboards;
+  const videoOptionsRef = useRef(videoOptions);
+  videoOptionsRef.current = videoOptions;
 
   const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
@@ -462,6 +470,7 @@ function WorkflowCanvas() {
     const currentTextNotes = textNotesRef.current;
     const currentLayoutConfigs = layoutConfigsRef.current;
     const currentStoryboards = storyboardsRef.current;
+    const currentVideoOptions = videoOptionsRef.current;
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
@@ -767,9 +776,17 @@ function WorkflowCanvas() {
 
           setGeneratingVideo(true);
           toast('Đang tạo video Google Omni...', { icon: '🎬' });
+          const nodeVideoOptions = currentVideoOptions[execNode.id] || {
+            aspectRatio: '16:9' as const,
+            durationSeconds: 8,
+            voiceStyle: 'Vietnamese female voice, warm Northern accent',
+          };
           const videoRes = await generateVideo({
             prompt: nodePrompt || 'Create a smooth animated video from these images',
             input_image_urls: videoImageUrls.length > 0 ? videoImageUrls : undefined,
+            aspect_ratio: nodeVideoOptions.aspectRatio,
+            duration_seconds: nodeVideoOptions.durationSeconds,
+            voice_style: nodeVideoOptions.voiceStyle,
           });
 
           const completedVideo = await waitForVideoGeneration(videoRes.id);
@@ -851,8 +868,13 @@ function WorkflowCanvas() {
   }, [results, editPrompt]);
 
   // Generate Video
-  const handleGenerateVideo = useCallback(async (overridePrompt?: string) => {
-    const nextPrompt = overridePrompt ?? videoPrompt;
+  const handleGenerateVideo = useCallback(async (override?: {
+    prompt?: string;
+    aspectRatio?: '16:9' | '9:16';
+    durationSeconds?: number;
+    voiceStyle?: string;
+  }) => {
+    const nextPrompt = override?.prompt ?? videoPrompt;
     if (!nextPrompt.trim() && results.length === 0) {
       toast.error('Cần prompt hoặc hình ảnh input');
       return;
@@ -864,6 +886,9 @@ function WorkflowCanvas() {
       const res = await generateVideo({
         prompt: nextPrompt || prompt,
         input_image_url: imageUrl,
+        aspect_ratio: override?.aspectRatio || '16:9',
+        duration_seconds: override?.durationSeconds || 8,
+        voice_style: override?.voiceStyle || 'Vietnamese female voice, warm Northern accent',
       });
       const completedVideo = await waitForVideoGeneration(res.id);
       setVideoResult(completedVideo);
@@ -1089,7 +1114,42 @@ function WorkflowCanvas() {
           } };
         }
         if (node.type === 'video') {
-          return { ...node, data: { prompt: videoPrompt, imageUrl: results.find(r => r.status === 'completed')?.result_url, generating: generatingVideo, result: videoResult, onGenerate: (vp: string) => { setVideoPrompt(vp); handleGenerateVideoRef.current(vp); }, canGenerate: true, onDelete: deleteHandler } };
+          const options = videoOptions[node.id] || {
+            aspectRatio: '16:9',
+            durationSeconds: 8,
+            voiceStyle: 'Vietnamese female voice, warm Northern accent',
+          };
+          return { ...node, data: {
+            prompt: videoPrompt,
+            ...options,
+            imageUrl: results.find(r => r.status === 'completed')?.result_url,
+            generating: generatingVideo,
+            result: videoResult,
+            onGenerate: (next: {
+              prompt: string;
+              aspectRatio: '16:9' | '9:16';
+              durationSeconds: number;
+              voiceStyle: string;
+            }) => {
+              setVideoPrompt(next.prompt);
+              setVideoOptions(prev => ({
+                ...prev,
+                [node.id]: {
+                  aspectRatio: next.aspectRatio,
+                  durationSeconds: next.durationSeconds,
+                  voiceStyle: next.voiceStyle,
+                },
+              }));
+              handleGenerateVideoRef.current(next);
+            },
+            onOptionsChange: (nextOptions: {
+              aspectRatio: '16:9' | '9:16';
+              durationSeconds: number;
+              voiceStyle: string;
+            }) => setVideoOptions(prev => ({ ...prev, [node.id]: nextOptions })),
+            canGenerate: true,
+            onDelete: deleteHandler
+          } };
         }
         if (node.type === 'text') {
           const noteText = textNotes[node.id] || '';
@@ -1099,7 +1159,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1390,6 +1450,7 @@ function WorkflowCanvas() {
           setResults([]);
           setVideoPrompt('');
           setVideoResult(null);
+          setVideoOptions({});
           setTextNotes({});
           setLayoutConfigs({});
           setStoryboards({});
