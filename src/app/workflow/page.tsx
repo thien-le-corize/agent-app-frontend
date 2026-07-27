@@ -516,13 +516,12 @@ function WorkflowCanvas() {
         ...edges.map((e) => e.target),
       ]);
       const generateNodes = nodes.filter((n) => n.type === 'generate' && connectedNodeIds.has(n.id));
-      const videoNodes = nodes.filter((n) => n.type === 'video' && connectedNodeIds.has(n.id));
       const aiPromptNodes = nodes.filter((n) => n.type === 'aiprompt' && connectedNodeIds.has(n.id));
       const storyboardNodes = nodes.filter((n) => n.type === 'storyboard' && connectedNodeIds.has(n.id));
-      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...generateNodes, ...videoNodes];
+      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...generateNodes];
 
       if (executableNodes.length === 0) {
-        toast.error('Thêm node Generate hoặc Video vào flow');
+        toast.error('Thêm node Storybook hoặc Generate vào flow. Video chỉ chạy khi bấm Tạo Video.');
         setGenerating(false);
         return;
       }
@@ -908,36 +907,111 @@ function WorkflowCanvas() {
     aspectRatio?: '16:9' | '9:16';
     durationSeconds?: number;
     voiceStyle?: string;
-  }) => {
-    const nextPrompt = override?.prompt ?? videoPrompt;
-    if (!nextPrompt.trim() && results.length === 0) {
+  }, videoNodeId?: string) => {
+    let nextPrompt = override?.prompt?.trim() || videoPrompt.trim();
+    const videoImageUrls: string[] = [];
+
+    if (videoNodeId) {
+      const upstreamNodes = getUpstreamNodes(videoNodeId, edges, nodes);
+      for (const upstreamNode of upstreamNodes) {
+        if (upstreamNode.type === 'storyboardImage') {
+          appendUnique(videoImageUrls, [getStoryboardImageUrl(upstreamNode, {}, storyboardImages)]);
+        } else if (upstreamNode.type === 'storyboard') {
+          const storyboard = storyboards[upstreamNode.id]?.trim() || (upstreamNode.data as any)?.storyboard?.trim() || '';
+          if (!nextPrompt && storyboard) nextPrompt = storyboard;
+          appendUnique(videoImageUrls, storyboardImages[upstreamNode.id] || (upstreamNode.data as any)?.imageUrls || []);
+        } else if (upstreamNode.type === 'prompt') {
+          const promptText = (upstreamNode.data as any)?.prompt?.trim();
+          if (!nextPrompt && promptText) nextPrompt = promptText;
+        } else if (upstreamNode.type === 'image') {
+          appendUnique(videoImageUrls, imageNodeLibraryUrls[upstreamNode.id] || []);
+          for (const file of imageNodeFiles[upstreamNode.id] || []) {
+            const { url } = await uploadFile(file);
+            appendUnique(videoImageUrls, [url]);
+          }
+        } else if (upstreamNode.type === 'input') {
+          appendUnique(videoImageUrls, inputNodeLibraryUrls[upstreamNode.id] || []);
+          for (const file of inputNodeFiles[upstreamNode.id] || []) {
+            const { url } = await uploadFile(file);
+            appendUnique(videoImageUrls, [url]);
+          }
+        } else if (upstreamNode.type === 'references') {
+          appendUnique(videoImageUrls, referenceLibraryUrls);
+          for (const file of referenceFiles) {
+            const { url } = await uploadFile(file);
+            appendUnique(videoImageUrls, [url]);
+          }
+        } else if (upstreamNode.type === 'generate') {
+          const nodeResults = ((upstreamNode.data as any)?.results || []) as ImageGeneration[];
+          appendUnique(videoImageUrls, nodeResults.map((result) => result.result_url || '').filter(Boolean));
+        }
+      }
+    }
+
+    const fallbackImageUrl = results.find(r => r.status === 'completed')?.result_url;
+    appendUnique(videoImageUrls, fallbackImageUrl ? [fallbackImageUrl] : []);
+    const omniImageUrls = videoImageUrls.slice(0, 4);
+
+    if (!nextPrompt.trim() && omniImageUrls.length === 0) {
       toast.error('Cần prompt hoặc hình ảnh input');
       return;
     }
     setGeneratingVideo(true);
     setVideoResult(null);
+    if (videoNodeId) {
+      setNodes((nds) => nds.map((node) => node.id === videoNodeId
+        ? { ...node, data: { ...node.data, status: 'running', generating: true, result: undefined } }
+        : node
+      ));
+    }
     try {
-      const imageUrl = results.find(r => r.status === 'completed')?.result_url;
       const res = await generateVideo({
         prompt: nextPrompt || prompt,
-        input_image_url: imageUrl,
+        input_image_urls: omniImageUrls.length > 0 ? omniImageUrls : undefined,
         aspect_ratio: override?.aspectRatio || '16:9',
         duration_seconds: override?.durationSeconds || 8,
         voice_style: override?.voiceStyle || 'Vietnamese female voice, warm Northern accent',
       });
       const completedVideo = await waitForVideoGeneration(res.id);
       setVideoResult(completedVideo);
+      if (videoNodeId) {
+        setNodes((nds) => nds.map((node) => node.id === videoNodeId
+          ? { ...node, data: { ...node.data, status: completedVideo.status === 'failed' ? 'error' : 'done', generating: false, result: completedVideo } }
+          : node
+        ));
+      }
       if (completedVideo.status === 'failed') {
         toast.error(completedVideo.error_message || 'Tạo video thất bại');
       } else {
         toast.success('Đã tạo video Google Omni!');
       }
     } catch (err) {
+      if (videoNodeId) {
+        setNodes((nds) => nds.map((node) => node.id === videoNodeId
+          ? { ...node, data: { ...node.data, status: 'error', generating: false } }
+          : node
+        ));
+      }
       toast.error('Tạo video thất bại');
     } finally {
       setGeneratingVideo(false);
     }
-  }, [videoPrompt, prompt, results]);
+  }, [
+    videoPrompt,
+    prompt,
+    results,
+    edges,
+    nodes,
+    storyboardImages,
+    storyboards,
+    imageNodeFiles,
+    imageNodeLibraryUrls,
+    inputNodeFiles,
+    inputNodeLibraryUrls,
+    referenceFiles,
+    referenceLibraryUrls,
+    setNodes,
+  ]);
 
   // Drag & Drop
   const onDragOver = useCallback((event: DragEvent) => {
@@ -1311,8 +1385,8 @@ function WorkflowCanvas() {
             prompt: videoPrompt,
             ...options,
             imageUrl: results.find(r => r.status === 'completed')?.result_url,
-            generating: generatingVideo,
-            result: videoResult,
+            generating: Boolean((node.data as any)?.generating) || generatingVideo,
+            result: (node.data as any)?.result || videoResult,
             onGenerate: (next: {
               prompt: string;
               aspectRatio: '16:9' | '9:16';
@@ -1328,7 +1402,7 @@ function WorkflowCanvas() {
                   voiceStyle: next.voiceStyle,
                 },
               }));
-              handleGenerateVideoRef.current(next);
+              handleGenerateVideoRef.current(next, node.id);
             },
             onOptionsChange: (nextOptions: {
               aspectRatio: '16:9' | '9:16';
