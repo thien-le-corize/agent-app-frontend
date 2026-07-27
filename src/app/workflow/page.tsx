@@ -320,6 +320,7 @@ function WorkflowCanvas() {
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
   const [layoutConfigs, setLayoutConfigs] = useState<Record<string, any>>({});
   const [storyboards, setStoryboards] = useState<Record<string, string>>({});
+  const [storyboardImages, setStoryboardImages] = useState<Record<string, string[]>>({});
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
@@ -402,6 +403,7 @@ function WorkflowCanvas() {
     setTextNotes({});
     setLayoutConfigs({});
     setStoryboards({});
+    setStoryboardImages({});
     localStorage.removeItem('workflow_draft');
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
@@ -679,6 +681,7 @@ function WorkflowCanvas() {
 
           nodeResults[execNode.id] = storyboard;
           setStoryboards((prev) => ({ ...prev, [execNode.id]: storyboard }));
+          setStoryboardImages((prev) => ({ ...prev, [execNode.id]: storyboardImageUrls }));
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard, status: 'done', generating: false } } : n));
           toast.success('✅ Storybook xong');
         } else if (execNode.type === 'generate') {
@@ -1019,7 +1022,7 @@ function WorkflowCanvas() {
       }
     }
 
-    return imageUrls;
+    return imageUrls.slice(0, 4);
   }, [
     edges,
     nodes,
@@ -1030,6 +1033,48 @@ function WorkflowCanvas() {
     referenceFiles,
     referenceLibraryUrls,
   ]);
+
+  const regenerateStoryboardNode = useCallback(async (storyboardNodeId: string, scriptOverride?: string) => {
+    const upstreamNodes = getUpstreamNodes(storyboardNodeId, edges, nodes);
+    const upstreamPromptNode = upstreamNodes.find((node) => node.type === 'prompt');
+    const script =
+      scriptOverride?.trim() ||
+      (upstreamPromptNode?.data as any)?.prompt?.trim() ||
+      prompt.trim();
+
+    if (!script) {
+      toast.error('Nối Prompt hoặc nhập ý tưởng trước');
+      return;
+    }
+
+    setNodes((nds) => nds.map((node) => node.id === storyboardNodeId
+      ? { ...node, data: { ...node.data, status: 'running', generating: true } }
+      : node
+    ));
+
+    try {
+      const imageUrls = await collectImageUrlsForNode(storyboardNodeId);
+      const { storyboard } = await generateVideoStoryboard({
+        script,
+        image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+      });
+
+      setStoryboards((prev) => ({ ...prev, [storyboardNodeId]: storyboard }));
+      setStoryboardImages((prev) => ({ ...prev, [storyboardNodeId]: imageUrls }));
+      setNodes((nds) => nds.map((node) => node.id === storyboardNodeId
+        ? { ...node, data: { ...node.data, storyboard, imageUrls, status: 'done', generating: false } }
+        : node
+      ));
+      toast.success('Đã tạo lại Storybook');
+    } catch (error) {
+      console.error('Regenerate storyboard error:', error);
+      setNodes((nds) => nds.map((node) => node.id === storyboardNodeId
+        ? { ...node, data: { ...node.data, status: 'error', generating: false } }
+        : node
+      ));
+      toast.error('Tạo lại Storybook thất bại');
+    }
+  }, [edges, nodes, prompt, setNodes, collectImageUrlsForNode]);
 
   const handleCreateStoryboardFromPrompt = useCallback(async (promptNodeId: string, script: string) => {
     const cleanScript = script.trim();
@@ -1053,22 +1098,7 @@ function WorkflowCanvas() {
 
     try {
       for (const storyboardNode of targetStoryboardNodes) {
-        setNodes((nds) => nds.map((node) => node.id === storyboardNode.id
-          ? { ...node, data: { ...node.data, status: 'running', generating: true } }
-          : node
-        ));
-
-        const imageUrls = await collectImageUrlsForNode(storyboardNode.id);
-        const { storyboard } = await generateVideoStoryboard({
-          script: cleanScript,
-          image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-        });
-
-        setStoryboards((prev) => ({ ...prev, [storyboardNode.id]: storyboard }));
-        setNodes((nds) => nds.map((node) => node.id === storyboardNode.id
-          ? { ...node, data: { ...node.data, storyboard, status: 'done', generating: false } }
-          : node
-        ));
+        await regenerateStoryboardNode(storyboardNode.id, cleanScript);
       }
 
       toast.success('Đã tạo kịch bản và đưa vào Storybook');
@@ -1084,7 +1114,7 @@ function WorkflowCanvas() {
     } finally {
       setCreatingStoryboardFromPrompt((prev) => ({ ...prev, [promptNodeId]: false }));
     }
-  }, [edges, nodes, setNodes, collectImageUrlsForNode]);
+  }, [edges, nodes, regenerateStoryboardNode]);
 
   useEffect(() => {
     if (!referenceAnalysis) return;
@@ -1108,6 +1138,8 @@ function WorkflowCanvas() {
   handleGenerateVideoRef.current = handleGenerateVideo;
   const handleCreateStoryboardFromPromptRef = useRef(handleCreateStoryboardFromPrompt);
   handleCreateStoryboardFromPromptRef.current = handleCreateStoryboardFromPrompt;
+  const regenerateStoryboardNodeRef = useRef(regenerateStoryboardNode);
+  regenerateStoryboardNodeRef.current = regenerateStoryboardNode;
   const deleteNodeRef = useRef(deleteNode);
   deleteNodeRef.current = deleteNode;
 
@@ -1204,9 +1236,11 @@ function WorkflowCanvas() {
           const storyboard = storyboards[node.id] || (node.data as any)?.storyboard || '';
           return { ...node, data: {
             storyboard,
+            imageUrls: storyboardImages[node.id] || (node.data as any)?.imageUrls || [],
             generating: Boolean((node.data as any)?.generating),
             status: (node.data as any)?.status || 'idle',
             onChange: (val: string) => setStoryboards(prev => ({ ...prev, [node.id]: val })),
+            onRegenerate: () => regenerateStoryboardNodeRef.current(node.id),
             onDelete: deleteHandler,
           } };
         }
@@ -1267,7 +1301,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1562,6 +1596,7 @@ function WorkflowCanvas() {
           setTextNotes({});
           setLayoutConfigs({});
           setStoryboards({});
+          setStoryboardImages({});
           setShowTemplates(false);
           toast.success(`Loaded: ${template.name}`);
         }}
