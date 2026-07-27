@@ -751,10 +751,11 @@ function WorkflowCanvas() {
             toast.success('Đã đưa kịch bản vào Prompt');
           }
 
+          const referencePrompt = buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames);
           toast(`Đang tạo ảnh tham chiếu ${frameIndex + 1}/${totalFrames}...`, { icon: '🖼️' });
           const res = await generateImage({
             ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
-            user_input: buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames),
+            user_input: referencePrompt,
             reference_images: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
             input_images: inputImages.length > 0 ? inputImages.slice(0, 4) : undefined,
             variation_index: frameIndex + 1,
@@ -772,7 +773,7 @@ function WorkflowCanvas() {
           nodeResults[execNode.id] = res.result_url;
           allResults.push(res);
           setNodes((nds) => nds.map((n) => n.id === execNode.id
-            ? { ...n, data: { ...n.data, imageUrl: res.result_url, status: 'done', generating: false, result: res } }
+            ? { ...n, data: { ...n.data, imageUrl: res.result_url, prompt: referencePrompt, status: 'done', generating: false, result: res } }
             : n
           ));
           toast.success(`✅ Ảnh tham chiếu ${frameIndex + 1} xong`);
@@ -1246,6 +1247,52 @@ function WorkflowCanvas() {
     }
   }, [edges, nodes, prompt, setNodes, collectImageUrlsForNode]);
 
+  const regenerateStoryboardImageNode = useCallback(async (storyboardImageNodeId: string) => {
+    const storyboardImageNode = nodes.find((node) => node.id === storyboardImageNodeId);
+    if (!storyboardImageNode) return;
+
+    const nodeData = storyboardImageNode.data as any;
+    const frameIndex = typeof nodeData?.index === 'number' ? nodeData.index : 0;
+    const promptText = nodeData?.prompt?.trim() || buildStoryboardReferenceImagePrompt(prompt, frameIndex, 4);
+    if (!promptText.trim()) {
+      toast.error('Nhập prompt cho ảnh tham chiếu trước');
+      return;
+    }
+
+    setNodes((nds) => nds.map((node) => node.id === storyboardImageNodeId
+      ? { ...node, data: { ...node.data, status: 'running', generating: true } }
+      : node
+    ));
+
+    try {
+      const imageUrls = await collectImageUrlsForNode(storyboardImageNodeId);
+      const res = await generateImage({
+        ...(selectedBrand?.id ? { brand_id: selectedBrand.id } : {}),
+        user_input: promptText,
+        reference_images: imageUrls.length > 0 ? imageUrls.slice(0, 4) : undefined,
+        input_images: imageUrls.length > 0 ? imageUrls.slice(0, 4) : undefined,
+        variation_index: frameIndex + 1,
+      });
+
+      if (res.status === 'failed' || !res.result_url) {
+        throw new Error(res.error_message || 'Tạo ảnh tham chiếu thất bại');
+      }
+
+      setNodes((nds) => nds.map((node) => node.id === storyboardImageNodeId
+        ? { ...node, data: { ...node.data, imageUrl: res.result_url, prompt: promptText, status: 'done', generating: false, result: res } }
+        : node
+      ));
+      toast.success(`Đã tạo lại ảnh tham chiếu ${frameIndex + 1}`);
+    } catch (error) {
+      console.error('Regenerate storyboard image error:', error);
+      setNodes((nds) => nds.map((node) => node.id === storyboardImageNodeId
+        ? { ...node, data: { ...node.data, status: 'error', generating: false } }
+        : node
+      ));
+      toast.error('Tạo lại ảnh tham chiếu thất bại');
+    }
+  }, [nodes, prompt, selectedBrand?.id, setNodes, collectImageUrlsForNode]);
+
   const handleCreateStoryboardFromPrompt = useCallback(async (promptNodeId: string, script: string) => {
     const cleanScript = script.trim();
     if (!cleanScript) {
@@ -1310,6 +1357,8 @@ function WorkflowCanvas() {
   handleCreateStoryboardFromPromptRef.current = handleCreateStoryboardFromPrompt;
   const regenerateStoryboardNodeRef = useRef(regenerateStoryboardNode);
   regenerateStoryboardNodeRef.current = regenerateStoryboardNode;
+  const regenerateStoryboardImageNodeRef = useRef(regenerateStoryboardImageNode);
+  regenerateStoryboardImageNodeRef.current = regenerateStoryboardImageNode;
   const deleteNodeRef = useRef(deleteNode);
   deleteNodeRef.current = deleteNode;
 
@@ -1424,8 +1473,13 @@ function WorkflowCanvas() {
             ...node.data,
             index,
             imageUrl: sourceStoryboardId ? storyboardImages[sourceStoryboardId]?.[index] || nodeData?.imageUrl || '' : nodeData?.imageUrl || '',
+            prompt: nodeData?.prompt || '',
             generating: sourceGenerating || Boolean(nodeData?.generating),
-            onRegenerate: sourceStoryboardId ? () => regenerateStoryboardNodeRef.current(sourceStoryboardId) : () => handleRunFlowRef.current(1),
+            onPromptChange: (value: string) => setNodes((nds) => nds.map((candidate) => candidate.id === node.id
+              ? { ...candidate, data: { ...candidate.data, prompt: value } }
+              : candidate
+            )),
+            onRegenerate: sourceStoryboardId ? () => regenerateStoryboardNodeRef.current(sourceStoryboardId) : () => regenerateStoryboardImageNodeRef.current(node.id),
             onDelete: deleteHandler,
           } };
         }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
@@ -8,8 +9,10 @@ interface StoryboardImageNodeProps {
   data: {
     index?: number;
     imageUrl?: string;
+    prompt?: string;
     generating?: boolean;
     label?: string;
+    onPromptChange?: (prompt: string) => void;
     onRegenerate?: () => void;
     onDelete?: () => void;
   };
@@ -19,16 +22,28 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
   const {
     index = 0,
     imageUrl,
+    prompt = '',
     generating = false,
     label,
+    onPromptChange,
     onRegenerate,
     onDelete,
   } = data;
+  const [localPrompt, setLocalPrompt] = useState(prompt);
   const tag = index === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${index - 1}>`;
+
+  useEffect(() => {
+    setLocalPrompt(prompt);
+  }, [prompt]);
+
+  const handlePromptChange = (value: string) => {
+    setLocalPrompt(value);
+    onPromptChange?.(value);
+  };
 
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: 220, background: '#111827', border: '1px solid #2563eb55' }}>
+      <div className="node-card nowheel" style={{ width: 260, background: '#111827', border: '1px solid #2563eb55' }}>
         <div className="node-header" style={{ background: '#172033', borderBottom: '1px solid #2563eb33', padding: '8px 10px' }}>
           <ImageIcon className="h-3.5 w-3.5 text-blue-300" />
           <span className="text-[11px] font-semibold text-gray-200">{label || `Ảnh tham chiếu ${index + 1}`}</span>
@@ -68,6 +83,13 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
           <div className="mt-1.5 truncate rounded-md bg-blue-400/10 px-2 py-1 text-[9px] font-medium text-blue-200">
             {tag}
           </div>
+          <textarea
+            value={localPrompt}
+            onChange={(event) => handlePromptChange(event.target.value)}
+            className="mt-2 h-24 w-full resize-none rounded-lg border border-blue-400/20 bg-[#0b111a] px-2 py-1.5 text-[10px] leading-relaxed text-gray-300 outline-none focus:border-blue-300/50"
+            placeholder="Prompt tạo ảnh tham chiếu..."
+            onPointerDown={(event) => event.stopPropagation()}
+          />
         </div>
 
         <Handle type="target" position={Position.Left} style={{ background: '#60a5fa' }} />
