@@ -266,10 +266,22 @@ function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number,
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
   const timingStart = Math.round((frameIndex / totalFrames) * 8);
   const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 8);
+  const segmentRoles = [
+    'Opening beat: establish the scene, main subject, wardrobe, environment, and starting action from <FIRST_FRAME>.',
+    'Development beat: show the main action or conversation progressing, with the same subject continuing naturally from the opening.',
+    'Reaction/detail beat: show supporting subjects, important product/prop/detail, or a closer reaction that supports the story.',
+    'Closing beat: show the final action, CTA/product/service emphasis, or resolved ending of the 8-second video.',
+  ];
+  const segmentRole = segmentRoles[Math.min(frameIndex, segmentRoles.length - 1)];
 
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
 Create one polished cinematic reference image for a Google Omni video workflow.
-This image represents the visual beat from ${timingStart}s to ${timingEnd}s.
+This image represents ONLY the video segment from ${timingStart}s to ${timingEnd}s.
+
+[Segment for this reference image]
+${segmentRole}
+Use the full script below only as context, then extract the action, subject placement, camera angle, mood, and visual details that belong to this ${timingStart}-${timingEnd}s segment.
+Do not illustrate the whole script in this image. Do not repeat the same composition as other reference images.
 
 [Full approved script]
 ${script}
