@@ -555,8 +555,12 @@ function WorkflowCanvas() {
       const nodeResults: Record<string, string> = {}; // nodeId -> result URL
       const runtimeStoryboardImages: Record<string, string[]> = {};
       const allResults: ImageGeneration[] = [];
+      const processedStoryboardImageNodes = new Set<string>();
 
       for (const execNode of sorted) {
+        if (execNode.type === 'storyboardImage' && processedStoryboardImageNodes.has(execNode.id)) {
+          continue;
+        }
         console.log(`[Flow] Executing: ${execNode.type}(${execNode.id})`);
 
         // Update node status → running
@@ -734,10 +738,8 @@ function WorkflowCanvas() {
           toast.success('✅ Storybook xong');
         } else if (execNode.type === 'storyboardImage') {
           let script = nodeResults.__video_script || currentPrompt;
-          const frameIndex = typeof (execNode.data as any)?.index === 'number'
-            ? (execNode.data as any).index
-            : storyboardImageNodes.findIndex((node) => node.id === execNode.id);
           const totalFrames = Math.max(storyboardImageNodes.length, 1);
+          const batchNodes = storyboardImageNodes.filter((node) => !processedStoryboardImageNodes.has(node.id));
 
           if (!nodeResults.__video_script) {
             toast('Đang tự viết kịch bản video...', { icon: '🎬' });
@@ -751,32 +753,52 @@ function WorkflowCanvas() {
             toast.success('Đã đưa kịch bản vào Prompt');
           }
 
-          const referencePrompt = buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames);
-          toast(`Đang tạo ảnh tham chiếu ${frameIndex + 1}/${totalFrames}...`, { icon: '🖼️' });
-          const res = await generateImage({
-            ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
-            user_input: referencePrompt,
-            reference_images: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
-            input_images: inputImages.length > 0 ? inputImages.slice(0, 4) : undefined,
-            variation_index: frameIndex + 1,
-          });
+          batchNodes.forEach((node) => processedStoryboardImageNodes.add(node.id));
+          setNodes((nds) => nds.map((node) => batchNodes.some((batchNode) => batchNode.id === node.id)
+            ? { ...node, data: { ...node.data, status: 'running', generating: true } }
+            : node
+          ));
 
-          if (res.status === 'failed' || !res.result_url) {
-            setNodes((nds) => nds.map((n) => n.id === execNode.id
-              ? { ...n, data: { ...n.data, status: 'error', generating: false, result: res } }
-              : n
+          toast(`Đang tạo ${batchNodes.length} ảnh tham chiếu cùng lúc...`, { icon: '🖼️' });
+          const batchResults = await Promise.all(batchNodes.map(async (node) => {
+            const frameIndex = typeof (node.data as any)?.index === 'number'
+              ? (node.data as any).index
+              : storyboardImageNodes.findIndex((candidate) => candidate.id === node.id);
+            const referencePrompt = buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames);
+            const res = await generateImage({
+              ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
+              user_input: referencePrompt,
+              reference_images: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
+              input_images: inputImages.length > 0 ? inputImages.slice(0, 4) : undefined,
+              variation_index: frameIndex + 1,
+            });
+
+            return { node, frameIndex, referencePrompt, res };
+          }));
+
+          for (const item of batchResults) {
+            if (item.res.status === 'failed' || !item.res.result_url) {
+              setNodes((nds) => nds.map((node) => node.id === item.node.id
+                ? { ...node, data: { ...node.data, status: 'error', generating: false, result: item.res } }
+                : node
+              ));
+              continue;
+            }
+
+            nodeResults[item.node.id] = item.res.result_url;
+            allResults.push(item.res);
+            setNodes((nds) => nds.map((node) => node.id === item.node.id
+              ? { ...node, data: { ...node.data, imageUrl: item.res.result_url, prompt: item.referencePrompt, status: 'done', generating: false, result: item.res } }
+              : node
             ));
-            toast.error(res.error_message || 'Tạo ảnh tham chiếu thất bại');
-            continue;
           }
 
-          nodeResults[execNode.id] = res.result_url;
-          allResults.push(res);
-          setNodes((nds) => nds.map((n) => n.id === execNode.id
-            ? { ...n, data: { ...n.data, imageUrl: res.result_url, prompt: referencePrompt, status: 'done', generating: false, result: res } }
-            : n
-          ));
-          toast.success(`✅ Ảnh tham chiếu ${frameIndex + 1} xong`);
+          const failedCount = batchResults.filter((item) => item.res.status === 'failed' || !item.res.result_url).length;
+          if (failedCount > 0) {
+            toast.error(`${failedCount}/${batchNodes.length} ảnh tham chiếu thất bại`);
+          } else {
+            toast.success(`✅ ${batchNodes.length} ảnh tham chiếu xong`);
+          }
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
