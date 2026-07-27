@@ -30,7 +30,7 @@ function VideoNode({ data }: VideoNodeProps) {
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 12px' }}>
           <Video className="w-3.5 h-3.5 text-rose-400" />
-          <span className="text-gray-200 font-semibold text-[11px]">Generate Video</span>
+          <span className="text-gray-200 font-semibold text-[11px]">Google Omni Video</span>
           {generating && <Loader2 className="w-3.5 h-3.5 ml-auto animate-spin text-rose-400" />}
           {isCompleted && <span className="ml-auto text-[10px] text-emerald-400">✓ Done</span>}
         </div>
@@ -61,7 +61,7 @@ function VideoNode({ data }: VideoNodeProps) {
             <div className="m-2 rounded-xl py-6 text-center" style={{ background: 'rgba(244,63,94,0.05)', border: '1px solid rgba(244,63,94,0.15)' }}>
               <Loader2 className="w-6 h-6 text-rose-400 animate-spin mx-auto" />
               <p className="text-[10px] text-rose-300 mt-2 font-medium">Đang tạo video...</p>
-              <p className="text-[9px] text-gray-600 mt-0.5">Gemini Flash · 5-10s</p>
+              <p className="text-[9px] text-gray-600 mt-0.5">Google Gemini/Omni · đang xử lý</p>
             </div>
           )}
 

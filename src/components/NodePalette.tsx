@@ -13,6 +13,7 @@ import {
   Search,
   ChevronDown,
   ImagePlus,
+  Clapperboard,
 } from 'lucide-react';
 
 export interface NodeTypeInfo {
@@ -31,6 +32,7 @@ export const NODE_TYPES_LIST: NodeTypeInfo[] = [
   { type: 'aiprompt',   label: 'Prompt AI',      icon: Wand2,         color: 'purple',  description: 'AI tạo prompt từ thương hiệu' },
   { type: 'template',   label: 'Mẫu prompt',     icon: FileText,      color: 'indigo',  description: 'Prompt mẫu' },
   { type: 'prompt',     label: 'Prompt',         icon: MessageSquare, color: 'emerald', description: 'Nhập prompt thủ công' },
+  { type: 'storyboard', label: 'Storyboard',     icon: Clapperboard,  color: 'sky',     description: 'Tạo kịch bản cảnh cho video' },
   { type: 'generate',   label: 'Tạo ảnh',        icon: Sparkles,      color: 'rose',    description: 'Tạo hình ảnh' },
   { type: 'video',      label: 'Tạo video',      icon: Video,         color: 'red',     description: 'Tạo video' },
   { type: 'text',       label: 'Văn bản',        icon: Type,          color: 'gray',    description: 'Thêm nội dung vào prompt' },
@@ -48,6 +50,7 @@ const iconBgMap: Record<string, string> = {
   cyan: 'bg-cyan-500/20 text-cyan-400',
   gray: 'bg-gray-500/20 text-gray-400',
   purple: 'bg-purple-500/20 text-purple-400',
+  sky: 'bg-sky-500/20 text-sky-400',
 };
 
 export default function NodePalette() {

@@ -18,10 +18,10 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, layoutConfigToPrompt } from '@/components/nodes';
+import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, uploadFile, generateAIPrompt, analyzeReferenceStructure, analyzeBrandAsset, updateBrand } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate } from 'lucide-react';
@@ -34,14 +34,15 @@ import SidePanel from '@/components/SidePanel';
 const CONNECTION_RULES: Record<string, string[]> = {
   brand: ['template', 'references', 'image', 'prompt', 'generate', 'aiprompt'],
   template: ['prompt', 'generate', 'aiprompt'],
-  references: ['prompt', 'generate', 'image', 'aiprompt'],
-  image: ['prompt', 'generate', 'image', 'video', 'aiprompt'],
-  input: ['prompt', 'generate', 'aiprompt'],
-  prompt: ['generate', 'video', 'prompt'],
+  references: ['prompt', 'generate', 'image', 'aiprompt', 'storyboard'],
+  image: ['prompt', 'generate', 'image', 'video', 'aiprompt', 'storyboard'],
+  input: ['prompt', 'generate', 'aiprompt', 'storyboard'],
+  prompt: ['generate', 'video', 'prompt', 'storyboard'],
   generate: ['video', 'generate', 'image', 'prompt'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt'],
-  aiprompt: ['generate', 'prompt', 'video'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt', 'storyboard'],
+  aiprompt: ['generate', 'prompt', 'video', 'storyboard'],
+  storyboard: ['video', 'prompt'],
 };
 
 const initialNodes: Node[] = [
@@ -243,6 +244,21 @@ function appendUnique(target: string[], urls: string[]) {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForVideoGeneration(id: string): Promise<VideoGeneration> {
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const video = await getVideoGeneration(id);
+    if (video.status === 'completed' || video.status === 'failed') {
+      return video;
+    }
+    await sleep(5000);
+  }
+  throw new Error('Timeout khi chờ Google Omni tạo video');
+}
+
 const GENERATE_VARIATION_PRESETS = [
   'Hero layout: place the main subject large on the right, promotional headline and offer on the left, strong medical-blue CTA band at the bottom.',
   'Magazine poster layout: place the main subject centered, use oversized discount typography behind/around the subject, with floating dental icons and clean white-blue negative space.',
@@ -297,6 +313,7 @@ function WorkflowCanvas() {
   // Text notes
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
   const [layoutConfigs, setLayoutConfigs] = useState<Record<string, any>>({});
+  const [storyboards, setStoryboards] = useState<Record<string, string>>({});
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
@@ -377,6 +394,7 @@ function WorkflowCanvas() {
     setVideoResult(null);
     setTextNotes({});
     setLayoutConfigs({});
+    setStoryboards({});
     localStorage.removeItem('workflow_draft');
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
@@ -426,6 +444,8 @@ function WorkflowCanvas() {
   textNotesRef.current = textNotes;
   const layoutConfigsRef = useRef(layoutConfigs);
   layoutConfigsRef.current = layoutConfigs;
+  const storyboardsRef = useRef(storyboards);
+  storyboardsRef.current = storyboards;
 
   const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
@@ -441,6 +461,7 @@ function WorkflowCanvas() {
     const inputNodeLibraryUrls = inputNodeLibraryUrlsRef.current;
     const currentTextNotes = textNotesRef.current;
     const currentLayoutConfigs = layoutConfigsRef.current;
+    const currentStoryboards = storyboardsRef.current;
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
@@ -464,7 +485,8 @@ function WorkflowCanvas() {
       const generateNodes = nodes.filter((n) => n.type === 'generate' && connectedNodeIds.has(n.id));
       const videoNodes = nodes.filter((n) => n.type === 'video' && connectedNodeIds.has(n.id));
       const aiPromptNodes = nodes.filter((n) => n.type === 'aiprompt' && connectedNodeIds.has(n.id));
-      const executableNodes = [...aiPromptNodes, ...generateNodes, ...videoNodes];
+      const storyboardNodes = nodes.filter((n) => n.type === 'storyboard' && connectedNodeIds.has(n.id));
+      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...generateNodes, ...videoNodes];
 
       if (executableNodes.length === 0) {
         toast.error('Thêm node Generate hoặc Video vào flow');
@@ -516,6 +538,12 @@ function WorkflowCanvas() {
             // Trực tiếp từ AI Prompt node
             if (nodeResults[inp.id]) {
               nodePrompt = nodeResults[inp.id];
+            }
+          } else if (inp.type === 'storyboard') {
+            if (nodeResults[inp.id]) {
+              nodePrompt = nodeResults[inp.id];
+            } else if (currentStoryboards[inp.id]?.trim()) {
+              nodePrompt = currentStoryboards[inp.id];
             }
           } else if (inp.type === 'text') {
             const noteText = currentTextNotes[inp.id]?.trim();
@@ -623,6 +651,26 @@ function WorkflowCanvas() {
             toast.error('Lỗi tạo prompt');
           }
 
+        } else if (execNode.type === 'storyboard') {
+          let storyboardImageUrls = [...refImages];
+          const savedStoryboard = currentStoryboards[execNode.id]?.trim();
+
+          if (savedStoryboard) {
+            nodeResults[execNode.id] = savedStoryboard;
+            setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard: savedStoryboard, status: 'done', generating: false } } : n));
+            continue;
+          }
+
+          toast('Đang tạo storyboard...', { icon: '🎬' });
+          const { storyboard } = await generateVideoStoryboard({
+            script: nodePrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
+            image_urls: storyboardImageUrls.length > 0 ? storyboardImageUrls : undefined,
+          });
+
+          nodeResults[execNode.id] = storyboard;
+          setStoryboards((prev) => ({ ...prev, [execNode.id]: storyboard }));
+          setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard, status: 'done', generating: false } } : n));
+          toast.success('✅ Storyboard xong');
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
@@ -717,14 +765,25 @@ function WorkflowCanvas() {
 
           console.log(`[Flow] Video with ${videoImageUrls.length} images, prompt: ${nodePrompt.slice(0, 50)}`);
 
-          toast('Đang tạo video...', { icon: '🎬' });
+          setGeneratingVideo(true);
+          toast('Đang tạo video Google Omni...', { icon: '🎬' });
           const videoRes = await generateVideo({
             prompt: nodePrompt || 'Create a smooth animated video from these images',
             input_image_urls: videoImageUrls.length > 0 ? videoImageUrls : undefined,
           });
 
-          setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false } } : n));
-          toast.success(`✅ Video đang tạo`);
+          const completedVideo = await waitForVideoGeneration(videoRes.id);
+          setVideoResult(completedVideo);
+          setGeneratingVideo(false);
+
+          if (completedVideo.status === 'failed') {
+            setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'error', generating: false, result: completedVideo } } : n));
+            toast.error(completedVideo.error_message || 'Tạo video thất bại');
+            continue;
+          }
+
+          setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, status: 'done', generating: false, result: completedVideo } } : n));
+          toast.success(`✅ Video Google Omni xong`);
         }
       }
 
@@ -736,6 +795,7 @@ function WorkflowCanvas() {
       toast.error('Chạy flow thất bại');
       console.error(err);
     } finally {
+      setGeneratingVideo(false);
       setGenerating(false);
     }
   }, [numImages, nodes, edges]);
@@ -791,8 +851,9 @@ function WorkflowCanvas() {
   }, [results, editPrompt]);
 
   // Generate Video
-  const handleGenerateVideo = useCallback(async () => {
-    if (!videoPrompt.trim() && results.length === 0) {
+  const handleGenerateVideo = useCallback(async (overridePrompt?: string) => {
+    const nextPrompt = overridePrompt ?? videoPrompt;
+    if (!nextPrompt.trim() && results.length === 0) {
       toast.error('Cần prompt hoặc hình ảnh input');
       return;
     }
@@ -801,11 +862,16 @@ function WorkflowCanvas() {
     try {
       const imageUrl = results.find(r => r.status === 'completed')?.result_url;
       const res = await generateVideo({
-        prompt: videoPrompt || prompt,
+        prompt: nextPrompt || prompt,
         input_image_url: imageUrl,
       });
-      setVideoResult(res);
-      toast.success('Đã gửi yêu cầu tạo video!');
+      const completedVideo = await waitForVideoGeneration(res.id);
+      setVideoResult(completedVideo);
+      if (completedVideo.status === 'failed') {
+        toast.error(completedVideo.error_message || 'Tạo video thất bại');
+      } else {
+        toast.success('Đã tạo video Google Omni!');
+      }
     } catch (err) {
       toast.error('Tạo video thất bại');
     } finally {
@@ -1001,6 +1067,16 @@ function WorkflowCanvas() {
         if (node.type === 'prompt') {
           return { ...node, data: { prompt, onChange: setPrompt, onDelete: deleteHandler } };
         }
+        if (node.type === 'storyboard') {
+          const storyboard = storyboards[node.id] || (node.data as any)?.storyboard || '';
+          return { ...node, data: {
+            storyboard,
+            generating: Boolean((node.data as any)?.generating),
+            status: (node.data as any)?.status || 'idle',
+            onChange: (val: string) => setStoryboards(prev => ({ ...prev, [node.id]: val })),
+            onDelete: deleteHandler,
+          } };
+        }
         if (node.type === 'generate') {
           return { ...node, data: {
             ...node.data,
@@ -1013,7 +1089,7 @@ function WorkflowCanvas() {
           } };
         }
         if (node.type === 'video') {
-          return { ...node, data: { prompt: videoPrompt, imageUrl: results.find(r => r.status === 'completed')?.result_url, generating: generatingVideo, result: videoResult, onGenerate: (vp: string) => { setVideoPrompt(vp); handleGenerateVideoRef.current(); }, canGenerate: true, onDelete: deleteHandler } };
+          return { ...node, data: { prompt: videoPrompt, imageUrl: results.find(r => r.status === 'completed')?.result_url, generating: generatingVideo, result: videoResult, onGenerate: (vp: string) => { setVideoPrompt(vp); handleGenerateVideoRef.current(vp); }, canGenerate: true, onDelete: deleteHandler } };
         }
         if (node.type === 'text') {
           const noteText = textNotes[node.id] || '';
@@ -1023,7 +1099,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1037,6 +1113,7 @@ function WorkflowCanvas() {
     video: VideoNode,
     text: TextNode,
     aiprompt: AIPromptNode,
+    storyboard: StoryboardNode,
   }), []);
 
   return (
@@ -1135,7 +1212,7 @@ function WorkflowCanvas() {
                 const colors: Record<string, string> = {
                   brand: '#8b5cf6', template: '#3b82f6', references: '#f59e0b',
                   image: '#06b6d4', prompt: '#10b981', generate: '#6366f1',
-                  video: '#e11d48', text: '#6b7280',
+                  video: '#e11d48', text: '#6b7280', storyboard: '#38bdf8',
                 };
                 return colors[node.type || ''] || '#64748b';
               }}
@@ -1302,6 +1379,20 @@ function WorkflowCanvas() {
           // Load template nodes and edges
           setNodes(template.nodes);
           setEdges(template.edges);
+          setReferenceFiles([]);
+          setReferenceLibraryUrls([]);
+          setReferenceAnalysis(null);
+          setImageNodeFiles({});
+          setImageNodeLibraryUrls({});
+          setInputNodeFiles({});
+          setInputNodeLibraryUrls({});
+          setPrompt('');
+          setResults([]);
+          setVideoPrompt('');
+          setVideoResult(null);
+          setTextNotes({});
+          setLayoutConfigs({});
+          setStoryboards({});
           setShowTemplates(false);
           toast.success(`Loaded: ${template.name}`);
         }}

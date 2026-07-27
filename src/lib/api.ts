@@ -154,6 +154,14 @@ export async function analyzeBrandAsset(payload: {
   return data;
 }
 
+export async function generateVideoStoryboard(payload: {
+  script: string;
+  image_urls?: string[];
+}): Promise<{ storyboard: string }> {
+  const { data } = await api.post('/image-generations/generate-video-storyboard', payload);
+  return data;
+}
+
 export async function getImageGenerations(params?: {
   brand_id?: string;
   status?: string;
@@ -191,6 +199,30 @@ export async function generateVideo(payload: {
 
 export async function getVideoGeneration(id: string): Promise<VideoGeneration> {
   const { data } = await api.get(`/video-generations/${id}`);
+  return data;
+}
+
+// Settings
+export interface ApiKeyStatus {
+  configured: boolean;
+  masked: string;
+}
+
+export interface ApiKeysStatus {
+  openai_api_key: ApiKeyStatus;
+  gemini_api_key: ApiKeyStatus;
+}
+
+export async function getApiKeysStatus(): Promise<ApiKeysStatus> {
+  const { data } = await api.get('/settings/api-keys');
+  return data;
+}
+
+export async function updateApiKeys(payload: {
+  openai_api_key?: string;
+  gemini_api_key?: string;
+}): Promise<ApiKeysStatus> {
+  const { data } = await api.put('/settings/api-keys', payload);
   return data;
 }
 

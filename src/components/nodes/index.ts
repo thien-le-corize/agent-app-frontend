@@ -10,4 +10,5 @@ export { default as TextNode } from './TextNode';
 export { default as AIPromptNode } from './AIPromptNode';
 export { default as InputImageNode } from './InputImageNode';
 export { default as LayoutNode } from './LayoutNode';
+export { default as StoryboardNode } from './StoryboardNode';
 export { layoutConfigToPrompt } from './LayoutNode';
