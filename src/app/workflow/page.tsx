@@ -270,9 +270,11 @@ The image must contain the entire 0-8 second video plan in one visual storyboard
 ${script}
 
 [Storyboard sheet requirement]
-- Create a clean 3-panel horizontal storyboard sheet inside one image: Panel 1 = opening 0-2.5s, Panel 2 = development 2.5-5.5s, Panel 3 = closing 5.5-8s.
+- Create a clean storyboard sheet inside one image with up to 6 panels/keyframes, preferably a 2x3 grid.
+- The panels should cover the full 0-8 second video: opening, first action, development, detail/reaction, climax/CTA, closing.
+- If the script is very simple, use fewer panels, but never more than 6.
 - Each panel must show a different moment from the script with consistent subject identity, wardrobe, setting style, lighting, and color grade.
-- Use cinematic composition, clear subject placement, and readable visual progression from left to right.
+- Use cinematic composition, clear subject placement, and readable visual progression from left to right, top to bottom.
 - Keep the same person/people from the input image references across all panels.
 - Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
 - Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
