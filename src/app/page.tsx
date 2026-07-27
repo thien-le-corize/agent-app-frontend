@@ -1,395 +1,363 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Heart, Eye, Download, X, Loader2, Sparkles, Plus, Search, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  Activity,
+  Bot,
+  Users,
+  Calendar,
+  TrendingUp,
+  Clock,
+  Zap,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Settings,
+} from 'lucide-react';
+import { AppShell, Header } from '@/components/layout';
+import { MetricCard, StatusIndicator, DataTable, Column, ActionBadge } from '@/components/dashboard';
+import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
 
-interface WorkItem {
-  id: number;
-  user_name: string;
-  user_avatar: string;
-  user_handle: string;
-  output_image_url: string;
-  likes_count: number;
-  view_count: number;
-  created_at: string;
-  prompt_excerpt: string;
-  model: string;
-  size: string;
-  quality: string;
-  share_id: string;
-}
+// Mock data for demo - replace with actual API calls
+const mockStats = {
+  totalPrompts: 124000,
+  avgLatency: 850,
+  totalCost: 452.16,
+  activeModels: 3,
+  promptsTrend: 15,
+  latencyTrend: -5,
+  costTrend: -8,
+};
 
-interface ApiResponse {
-  data: WorkItem[];
-  nextOffset: number;
-  hasMore: boolean;
-}
+const mockModels = [
+  { name: 'GPT-4o', status: 'healthy', traffic: 68, latency: 120, requests: '84k' },
+  { name: 'Claude 3.5 Sonnet', status: 'healthy', traffic: 22, latency: 145, requests: '27k' },
+  { name: 'Gemini Flash', status: 'warning', traffic: 10, latency: 850, requests: '13k' },
+];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const mockExceptions = [
+  { time: '10:42 AM', clientId: 'user_892x', violation: 'PII_Detector_v2 (Credit Card Info)', snippet: '"payment with 4532 1121"', action: 'blocked' as const },
+  { time: '10:15 AM', clientId: 'user_110a', violation: 'Prompt Injection Attempt', snippet: '"Ignore previous instructions"', action: 'fallback' as const },
+  { time: '09:30 AM', clientId: 'sys_router', violation: 'Upstream Timeout (GPT-4o > 5000ms)', snippet: '"Summarize the attached 50..."', action: 'blocked' as const },
+  { time: '09:12 AM', clientId: 'user_4480', violation: 'Output Parsing: Invalid JSON Schema', snippet: '"{user_name: \'John Doe\'}"', action: 'retried' as const },
+  { time: '08:45 AM', clientId: 'api_v2', violation: 'Rate Limit: 60 requests/minute', snippet: '"What is the capital of F..."', action: 'blocked' as const },
+];
 
-export default function HomePage() {
-  const [items, setItems] = useState<WorkItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
-  const [loadingPrompt, setLoadingPrompt] = useState(false);
-  const [fullPromptText, setFullPromptText] = useState('');
-  const loaderRef = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
-  const router = useRouter();
-
-  // Fetch full prompt khi mở lightbox
-  useEffect(() => {
-    if (selectedItem?.share_id) {
-      setFullPromptText(selectedItem.prompt_excerpt || '');
-      // Fetch full prompt
-      fetch(`${API_URL}/gallery/prompt?share_id=${selectedItem.share_id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.prompt) {
-            setFullPromptText(data.prompt);
-          }
-        })
-        .catch(err => console.error('Lỗi khi lấy prompt:', err));
-    }
-  }, [selectedItem]);
-
-  // Chuyển sang Image Tool với reference
-  const handleUseAsReference = () => {
-    if (!selectedItem) return;
-    setLoadingPrompt(true);
-    
-    const params = new URLSearchParams({
-      ref: selectedItem.output_image_url,
-      prompt: fullPromptText || selectedItem.prompt_excerpt || '',
-    });
-    
-    setSelectedItem(null);
-    setLoadingPrompt(false);
-    router.push(`/image-tool?${params.toString()}`);
-  };
-
-  // Fetch images
-  const fetchImages = useCallback(async (currentOffset: number) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    setLoading(true);
-    
-    try {
-      const res = await fetch(
-        `${API_URL}/gallery?limit=24&offset=${currentOffset}&sort=latest&model=gpt-image`
-      );
-      const data: ApiResponse = await res.json();
-      
-      if (currentOffset === 0) {
-        setItems(data.data || []);
-      } else {
-        setItems(prev => [...prev, ...(data.data || [])]);
-      }
-      
-      setHasMore(data.hasMore);
-      setOffset(data.nextOffset);
-    } catch (error) {
-      console.error('Lỗi khi tải ảnh:', error);
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
-    }
-  }, []);
-
-  // Tải lần đầu
-  useEffect(() => {
-    fetchImages(0);
-  }, []);
-
-  // Infinite scroll — dùng ref để giữ giá trị offset & hasMore mới nhất
-  const offsetRef = useRef(0);
-  const hasMoreRef = useRef(true);
-
-  useEffect(() => { offsetRef.current = offset; }, [offset]);
-  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
-
-  useEffect(() => {
-    const currentLoader = loaderRef.current;
-    if (!currentLoader) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMoreRef.current && !loadingRef.current) {
-          fetchImages(offsetRef.current);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(currentLoader);
-    return () => observer.disconnect();
-  }, []);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-    return date.toLocaleDateString('vi-VN');
-  };
-
+// Flow diagram component
+function FlowDiagram() {
   return (
-    <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-40 backdrop-blur-xl" style={{ background: 'rgba(10, 10, 10, 0.9)', borderBottom: '1px solid #222' }}>
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Thư viện AI</h1>
-                <p className="text-xs text-gray-500">Khám phá ảnh GPT Image</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-lg text-sm text-gray-400" style={{ background: '#151515' }}>
-                {items?.length || 0} ảnh
-              </div>
-              <button
-                onClick={() => router.push('/image-tool')}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
-              >
-                <Plus className="w-4 h-4" />
-                Tạo ảnh mới
-              </button>
-            </div>
-          </div>
+    <div
+      className="rounded-xl p-5"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+          <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Endpoint Traffic & Health
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+            Last Updated: {new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <button
+            className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+          >
+            View Details
+          </button>
         </div>
       </div>
 
-      {/* Gallery Grid */}
-      <div className="max-w-[1800px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {(items || []).map((item) => (
+      {/* Flow visualization */}
+      <div className="relative py-8">
+        {/* API Gateway - Center top */}
+        <div className="flex justify-center mb-8">
+          <div
+            className="px-5 py-3 rounded-xl text-center"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center gap-2 justify-center mb-1">
+              <Zap className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+              <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                API Gateway
+              </span>
+            </div>
+            <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+              v1/chat/completions
+            </p>
+            <p className="text-[12px] font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
+              124k Reqs
+            </p>
+          </div>
+        </div>
+
+        {/* Connection lines */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          {/* Lines from gateway to models */}
+          <path d="M 50% 100 L 20% 200" stroke="url(#lineGradient)" strokeWidth="2" fill="none" />
+          <path d="M 50% 100 L 50% 200" stroke="url(#lineGradient)" strokeWidth="2" fill="none" />
+          <path d="M 50% 100 L 80% 200" stroke="url(#lineGradient)" strokeWidth="2" fill="none" />
+        </svg>
+
+        {/* Model nodes */}
+        <div className="flex justify-around items-start relative" style={{ zIndex: 1 }}>
+          {mockModels.map((model) => (
             <div
-              key={item.id}
-              className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
-              style={{ background: '#151515', border: '1px solid #222' }}
-              onClick={() => setSelectedItem(item)}
+              key={model.name}
+              className="px-4 py-3 rounded-xl text-center min-w-[140px]"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
             >
-              {/* Ảnh */}
-              <div className="aspect-square overflow-hidden">
-                <img
-                  src={item.output_image_url}
-                  alt=""
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  loading="lazy"
-                />
+              <div className="flex items-center gap-2 justify-center mb-2">
+                <Bot className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+                <span className="text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {model.name}
+                </span>
+                <StatusIndicator status={model.status as any} showLabel={false} size="sm" />
               </div>
-
-              {/* Overlay khi hover */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {/* Thông tin trên */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                  <span className="px-2 py-1 rounded-md text-[10px] font-medium bg-black/50 text-white/90 backdrop-blur-sm">
-                    {item.size}
-                  </span>
-                  <span className="px-2 py-1 rounded-md text-[10px] font-medium bg-black/50 text-white/90 backdrop-blur-sm">
-                    {item.quality}
-                  </span>
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-tertiary)' }}>Traffic</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{model.traffic}%</span>
                 </div>
-
-                {/* Thông tin dưới */}
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  {/* Người dùng */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <img
-                      src={item.user_avatar}
-                      alt=""
-                      className="w-6 h-6 rounded-full border border-white/20"
-                    />
-                    <span className="text-xs text-white/90 font-medium truncate">{item.user_name}</span>
-                  </div>
-                  
-                  {/* Thống kê */}
-                  <div className="flex items-center gap-3 text-white/70">
-                    <div className="flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">{item.likes_count}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">{item.view_count}</span>
-                    </div>
-                    <span className="text-[10px] ml-auto">{formatDate(item.created_at)}</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-tertiary)' }}>Avg</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{model.latency}ms</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
-
-        {/* Load more trigger */}
-        <div ref={loaderRef} className="flex justify-center py-8">
-          {loading && (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Đang tải thêm...</span>
-            </div>
-          )}
-          {!hasMore && (items?.length || 0) > 0 && (
-            <p className="text-sm text-gray-600">Đã hiển thị tất cả ảnh</p>
-          )}
-        </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Lightbox Modal */}
-      {selectedItem && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0, 0, 0, 0.95)' }}
-          onClick={() => setSelectedItem(null)}
+export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'settings') {
+      setActiveTab('settings');
+    }
+  }, []);
+
+  // Table columns for exceptions
+  const exceptionColumns: Column<typeof mockExceptions[0]>[] = [
+    {
+      key: 'time',
+      header: 'Time',
+      sortable: true,
+      width: '100px',
+      render: (row) => (
+        <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          {row.time}
+        </span>
+      ),
+    },
+    {
+      key: 'clientId',
+      header: 'Client_ID',
+      render: (row) => (
+        <span className="text-[12px] font-mono" style={{ color: 'var(--text-primary)' }}>
+          {row.clientId}
+        </span>
+      ),
+    },
+    {
+      key: 'violation',
+      header: 'Violation / Rule',
+      render: (row) => (
+        <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+          {row.violation}
+        </span>
+      ),
+    },
+    {
+      key: 'snippet',
+      header: 'Prompt Snippet',
+      render: (row) => (
+        <span
+          className="text-[12px] font-mono truncate block max-w-[200px]"
+          style={{ color: 'var(--text-tertiary)' }}
+          title={row.snippet}
         >
-          <div 
-            className="relative max-w-5xl w-full max-h-[90vh] flex gap-6"
-            onClick={(e) => e.stopPropagation()}
+          {row.snippet}
+        </span>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      width: '100px',
+      render: (row) => <ActionBadge action={row.action} />,
+    },
+  ];
+
+  return (
+    <AppShell>
+      <Header
+        title="Dashboard"
+        subtitle="Theo dõi hệ thống và cấu hình AI providers"
+        tabs={[
+          { id: 'overview', label: 'Overview', icon: Activity },
+          { id: 'metrics', label: 'Metrics', icon: TrendingUp },
+          { id: 'evaluations', label: 'Evaluations', icon: CheckCircle },
+          { id: 'settings', label: 'Settings', icon: Settings },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        actions={
+          <button
+            onClick={() => setLoading(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
           >
-            {/* Ảnh */}
-            <div className="flex-1 flex items-center justify-center">
-              <img
-                src={selectedItem.output_image_url}
-                alt=""
-                className="max-w-full max-h-[85vh] object-contain rounded-xl"
-              />
-            </div>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        }
+      />
 
-            {/* Bảng thông tin */}
-            <div 
-              className="w-[320px] shrink-0 rounded-xl p-5 overflow-y-auto max-h-[85vh]"
-              style={{ background: '#151515', border: '1px solid #222' }}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {activeTab === 'settings' ? (
+          <ApiKeysSettings />
+        ) : (
+          <>
+        {/* Metrics Row */}
+        <div className="grid grid-cols-3 gap-4">
+          <MetricCard
+            title="Processed Prompts"
+            value="124k"
+            icon={<Zap className="w-4 h-4" />}
+            trend={{ value: mockStats.promptsTrend, direction: 'up', label: 'vs yesterday' }}
+            sparkline={{
+              values: [80, 95, 88, 102, 98, 110, 124],
+              color: 'var(--accent-purple)',
+            }}
+          />
+          <MetricCard
+            title="Avg. Latency"
+            value={mockStats.avgLatency}
+            suffix="ms"
+            icon={<Clock className="w-4 h-4" />}
+            trend={{ value: 45, direction: 'up', label: 'vs yesterday' }}
+            sparkline={{
+              values: [650, 720, 680, 750, 800, 780, 850],
+              color: 'var(--accent-yellow)',
+            }}
+          />
+          <MetricCard
+            title="Total Cost"
+            value={mockStats.totalCost.toFixed(2)}
+            prefix="$"
+            icon={<TrendingUp className="w-4 h-4" />}
+            trend={{ value: mockStats.costTrend, direction: 'down', label: 'vs yesterday' }}
+            sparkline={{
+              values: [520, 490, 510, 480, 470, 460, 452],
+              color: 'var(--accent-green)',
+            }}
+          />
+        </div>
+
+        {/* Flow Diagram */}
+        <FlowDiagram />
+
+        {/* Exceptions Table */}
+        <DataTable
+          data={mockExceptions}
+          columns={exceptionColumns}
+          title="Guardrail Exceptions"
+          subtitle="Recent policy violations and system errors"
+          filterable
+          filterOptions={[
+            { label: 'All', value: 'all' },
+            { label: 'Blocked', value: 'blocked' },
+            { label: 'Fallback', value: 'fallback' },
+            { label: 'Retried', value: 'retried' },
+          ]}
+          pageSize={5}
+        />
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(52, 211, 153, 0.15)' }}
             >
-              {/* Người dùng */}
-              <div className="flex items-center gap-3 mb-4">
-                <img
-                  src={selectedItem.user_avatar}
-                  alt=""
-                  className="w-10 h-10 rounded-full"
-                  style={{ border: '2px solid #333' }}
-                />
-                <div>
-                  <p className="font-medium text-white">{selectedItem.user_name}</p>
-                  <p className="text-xs text-gray-500">@{selectedItem.user_handle}</p>
-                </div>
-              </div>
-
-              {/* Thống kê */}
-              <div className="flex gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid #222' }}>
-                <div className="flex items-center gap-1.5 text-gray-400">
-                  <Heart className="w-4 h-4" />
-                  <span className="text-sm font-medium">{selectedItem.likes_count}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-400">
-                  <Eye className="w-4 h-4" />
-                  <span className="text-sm font-medium">{selectedItem.view_count}</span>
-                </div>
-                <span className="text-xs ml-auto text-gray-500">
-                  {formatDate(selectedItem.created_at)}
-                </span>
-              </div>
-
-              {/* Chi tiết */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Model</span>
-                  <span className="text-xs font-medium px-2 py-1 rounded text-white" style={{ background: '#1a1a1a' }}>
-                    {selectedItem.model.split('/')[1] || selectedItem.model}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Kích thước</span>
-                  <span className="text-xs font-medium text-white">{selectedItem.size}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Chất lượng</span>
-                  <span className="text-xs font-medium text-white">{selectedItem.quality}</span>
-                </div>
-              </div>
-
-              {/* Prompt */}
-              {(fullPromptText || selectedItem.prompt_excerpt) && (
-                <div className="mb-4">
-                  <p className="text-xs font-medium mb-2 text-gray-400">Mô tả</p>
-                  <div 
-                    className="p-3 rounded-lg text-xs leading-relaxed max-h-[200px] overflow-y-auto text-gray-300"
-                    style={{ background: '#1a1a1a' }}
-                  >
-                    {fullPromptText || selectedItem.prompt_excerpt}
-                  </div>
-                </div>
-              )}
-
-              {/* Hành động */}
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={handleUseAsReference}
-                  disabled={loadingPrompt}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-70 text-white"
-                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
-                >
-                  {loadingPrompt ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang lấy prompt...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      Dùng làm tham khảo
-                    </>
-                  )}
-                </button>
-                <div className="flex gap-2">
-                  <a
-                    href={selectedItem.output_image_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition text-gray-300 hover:text-white"
-                    style={{ background: '#1a1a1a', border: '1px solid #333' }}
-                  >
-                    <Download className="w-4 h-4" />
-                    Tải về
-                  </a>
-                  <a
-                    href={`https://promptsref.com/share/${selectedItem.share_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition text-gray-300 hover:text-white"
-                    style={{ background: '#1a1a1a', border: '1px solid #333' }}
-                  >
-                    Xem gốc
-                  </a>
-                </div>
-              </div>
+              <CheckCircle className="w-5 h-5" style={{ color: 'var(--accent-green)' }} />
             </div>
+            <div>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Success Rate</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>99.2%</p>
+            </div>
+          </div>
 
-            {/* Nút đóng */}
-            <button
-              onClick={() => setSelectedItem(null)}
-              className="absolute -top-2 -right-2 p-2 rounded-full transition hover:bg-white/10"
-              style={{ background: '#1a1a1a', border: '1px solid #333' }}
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(248, 113, 113, 0.15)' }}
             >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+              <XCircle className="w-5 h-5" style={{ color: 'var(--accent-red)' }} />
+            </div>
+            <div>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Errors (24h)</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>23</p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(251, 191, 36, 0.15)' }}
+            >
+              <AlertTriangle className="w-5 h-5" style={{ color: 'var(--accent-yellow)' }} />
+            </div>
+            <div>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Warnings</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>47</p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(79, 140, 255, 0.15)' }}
+            >
+              <Bot className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            </div>
+            <div>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Active Models</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>3</p>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </AppShell>
   );
 }

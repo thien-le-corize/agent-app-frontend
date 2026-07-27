@@ -7,7 +7,6 @@ import {
   Workflow,
   Bot,
   Users,
-  Settings,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -23,14 +22,13 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Workflow', href: '/', icon: Workflow },
+  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { label: 'Workflow', href: '/workflow', icon: Workflow },
   { label: 'Chatbots', href: '/chatbot-list', icon: Bot },
   { label: 'CRM', href: '/crm', icon: Users },
 ];
 
 const bottomNav: NavItem[] = [
-  { label: 'Settings', href: '/settings', icon: Settings },
   { label: 'Help', href: '/help', icon: HelpCircle },
 ];
 

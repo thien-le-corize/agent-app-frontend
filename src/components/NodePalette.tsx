@@ -102,7 +102,7 @@ export default function NodePalette() {
       {/* Navigation */}
       <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--panel-border)' }}>
         <a 
-          href="/" 
+          href="/workflow" 
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium"
           style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
         >

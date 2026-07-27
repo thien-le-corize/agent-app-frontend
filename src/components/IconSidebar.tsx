@@ -8,7 +8,6 @@ import {
   Layers,
   Grid3X3,
   GitBranch,
-  Settings,
   HelpCircle,
   Bell,
   User,
@@ -20,15 +19,14 @@ interface IconSidebarProps {
 }
 
 const topItems = [
-  { id: 'home', icon: Home, href: '/dashboard' },
-  { id: 'workflow', icon: Workflow, href: '/' },
+  { id: 'home', icon: Home, href: '/' },
+  { id: 'workflow', icon: Workflow, href: '/workflow' },
   { id: 'layers', icon: Layers, href: '#' },
   { id: 'grid', icon: Grid3X3, href: '#' },
   { id: 'git', icon: GitBranch, href: '#' },
 ];
 
 const bottomItems = [
-  { id: 'settings', icon: Settings, href: '/settings' },
   { id: 'help', icon: HelpCircle, href: '#' },
   { id: 'notifications', icon: Bell, href: '#' },
 ];
@@ -38,7 +36,7 @@ export default function IconSidebar({ activePage = 'workflow' }: IconSidebarProp
     <div className="icon-sidebar">
       {/* Logo */}
       <Link
-        href="/"
+        href="/workflow"
         className="w-9 h-9 rounded-lg flex items-center justify-center mb-4"
         style={{ background: 'var(--accent)' }}
       >
