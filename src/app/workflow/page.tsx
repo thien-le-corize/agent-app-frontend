@@ -661,7 +661,7 @@ function WorkflowCanvas() {
             continue;
           }
 
-          toast('Đang tạo storyboard...', { icon: '🎬' });
+          toast('Đang tạo storybook theo từng ảnh...', { icon: '🎬' });
           const { storyboard } = await generateVideoStoryboard({
             script: nodePrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
             image_urls: storyboardImageUrls.length > 0 ? storyboardImageUrls : undefined,
@@ -670,7 +670,7 @@ function WorkflowCanvas() {
           nodeResults[execNode.id] = storyboard;
           setStoryboards((prev) => ({ ...prev, [execNode.id]: storyboard }));
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard, status: 'done', generating: false } } : n));
-          toast.success('✅ Storyboard xong');
+          toast.success('✅ Storybook xong');
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';

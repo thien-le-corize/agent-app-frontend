@@ -46,7 +46,7 @@ function StoryboardNode({ data, selected }: StoryboardNodeProps) {
       >
         <div className="node-header" style={{ background: '#141d2a', borderBottom: '1px solid #243244', padding: '8px 12px' }}>
           <Clapperboard className="w-3.5 h-3.5 text-sky-400" />
-          <span className="text-gray-200 font-semibold text-[11px]">Storyboard</span>
+          <span className="text-gray-200 font-semibold text-[11px]">Storybook</span>
           <div className="ml-auto flex items-center gap-1.5">
             {generating && <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />}
             {status === 'done' && <Check className="h-3.5 w-3.5 text-emerald-400" />}
@@ -60,13 +60,13 @@ function StoryboardNode({ data, selected }: StoryboardNodeProps) {
           value={localStoryboard}
           onChange={(event) => handleChange(event.target.value)}
           className="h-full min-h-0 flex-1 resize-none bg-transparent px-3 py-2.5 text-[11px] leading-relaxed text-sky-100/80 outline-none"
-          placeholder="Storyboard sẽ được tạo từ prompt kịch bản và ảnh đầu vào..."
+          placeholder="Storybook sẽ được OpenAI tạo theo từng ảnh đầu vào..."
           onPointerDown={(event) => event.stopPropagation()}
         />
 
         {!localStoryboard.trim() && !generating && (
           <div className="px-3 pb-2.5">
-            <p className="text-[9px] text-gray-500">Nối Prompt + ảnh đầu vào vào node này, rồi nhấn Run.</p>
+            <p className="text-[9px] text-gray-500">Nối Prompt + nhiều ảnh đầu vào, rồi nhấn Run.</p>
           </div>
         )}
 

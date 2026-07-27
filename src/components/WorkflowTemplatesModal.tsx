@@ -43,7 +43,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'google-omni-video-workflow',
     name: 'Tạo video Google Omni',
-    description: 'Ảnh đầu vào + prompt kịch bản → storyboard → video Google Gemini/Omni',
+    description: 'Ảnh đầu vào + prompt kịch bản → storybook từng ảnh bằng OpenAI → video Google Omni',
     thumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400&h=300&fit=crop&q=80',
     nodeCount: 4,
     category: 'preset',
@@ -66,9 +66,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { id: 'video-1', type: 'video', position: { x: 1210, y: 130 }, data: {} },
     ],
     edges: [
-      { id: 'e-image-storyboard', source: 'image-1', target: 'storyboard-1', animated: true },
-      { id: 'e-prompt-storyboard', source: 'prompt-1', target: 'storyboard-1', animated: true },
-      { id: 'e-storyboard-video', source: 'storyboard-1', target: 'video-1', animated: true },
+      { id: 'e-image-storybook', source: 'image-1', target: 'storyboard-1', animated: true },
+      { id: 'e-prompt-storybook', source: 'prompt-1', target: 'storyboard-1', animated: true },
+      { id: 'e-storybook-video', source: 'storyboard-1', target: 'video-1', animated: true },
     ],
   },
 ];
