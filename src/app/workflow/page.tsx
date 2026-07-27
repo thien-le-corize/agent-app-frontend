@@ -261,6 +261,26 @@ function getStoryboardImageUrl(
 }
 
 function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number, totalFrames: number) {
+  if (totalFrames === 1) {
+    return `[Full video storyboard sheet <FIRST_FRAME>]
+Create ONE single polished storyboard/contact-sheet image for a Google Omni video workflow.
+The image must contain the entire 0-8 second video plan in one visual storyboard sheet.
+
+[Full approved script]
+${script}
+
+[Storyboard sheet requirement]
+- Create a clean 3-panel horizontal storyboard sheet inside one image: Panel 1 = opening 0-2.5s, Panel 2 = development 2.5-5.5s, Panel 3 = closing 5.5-8s.
+- Each panel must show a different moment from the script with consistent subject identity, wardrobe, setting style, lighting, and color grade.
+- Use cinematic composition, clear subject placement, and readable visual progression from left to right.
+- Keep the same person/people from the input image references across all panels.
+- Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
+- Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
+- If the input contains a product/object, preserve its shape, material, label, color, and key details exactly.
+- Avoid large text overlays unless the script explicitly requires them; if labels are used, keep them small and inside safe margins.
+- Professional advertising style, realistic lighting, clean composition, family-safe, modest, non-sexual.`;
+  }
+
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
   const timingStart = Math.round((frameIndex / totalFrames) * 8);
   const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 8);
@@ -1013,35 +1033,47 @@ function WorkflowCanvas() {
 
     if (videoNodeId) {
       const upstreamNodes = getUpstreamNodes(videoNodeId, edges, nodes);
+      const storyboardImageUrls = upstreamNodes
+        .filter((upstreamNode) => upstreamNode.type === 'storyboardImage')
+        .map((upstreamNode) => getStoryboardImageUrl(upstreamNode, {}, storyboardImages))
+        .filter(Boolean);
+      appendUnique(videoImageUrls, storyboardImageUrls);
+
       for (const upstreamNode of upstreamNodes) {
         if (upstreamNode.type === 'storyboardImage') {
-          appendUnique(videoImageUrls, [getStoryboardImageUrl(upstreamNode, {}, storyboardImages)]);
+          continue;
         } else if (upstreamNode.type === 'storyboard') {
           const storyboard = storyboards[upstreamNode.id]?.trim() || (upstreamNode.data as any)?.storyboard?.trim() || '';
           if (!nextPrompt && storyboard) nextPrompt = storyboard;
-          appendUnique(videoImageUrls, storyboardImages[upstreamNode.id] || (upstreamNode.data as any)?.imageUrls || []);
+          if (storyboardImageUrls.length === 0) {
+            appendUnique(videoImageUrls, storyboardImages[upstreamNode.id] || (upstreamNode.data as any)?.imageUrls || []);
+          }
         } else if (upstreamNode.type === 'prompt') {
           const promptText = (upstreamNode.data as any)?.prompt?.trim();
           if (!nextPrompt && promptText) nextPrompt = promptText;
         } else if (upstreamNode.type === 'image') {
+          if (storyboardImageUrls.length > 0) continue;
           appendUnique(videoImageUrls, imageNodeLibraryUrls[upstreamNode.id] || []);
           for (const file of imageNodeFiles[upstreamNode.id] || []) {
             const { url } = await uploadFile(file);
             appendUnique(videoImageUrls, [url]);
           }
         } else if (upstreamNode.type === 'input') {
+          if (storyboardImageUrls.length > 0) continue;
           appendUnique(videoImageUrls, inputNodeLibraryUrls[upstreamNode.id] || []);
           for (const file of inputNodeFiles[upstreamNode.id] || []) {
             const { url } = await uploadFile(file);
             appendUnique(videoImageUrls, [url]);
           }
         } else if (upstreamNode.type === 'references') {
+          if (storyboardImageUrls.length > 0) continue;
           appendUnique(videoImageUrls, referenceLibraryUrls);
           for (const file of referenceFiles) {
             const { url } = await uploadFile(file);
             appendUnique(videoImageUrls, [url]);
           }
         } else if (upstreamNode.type === 'generate') {
+          if (storyboardImageUrls.length > 0) continue;
           const nodeResults = ((upstreamNode.data as any)?.results || []) as ImageGeneration[];
           appendUnique(videoImageUrls, nodeResults.map((result) => result.result_url || '').filter(Boolean));
         }
@@ -1287,7 +1319,8 @@ function WorkflowCanvas() {
 
     const nodeData = storyboardImageNode.data as any;
     const frameIndex = typeof nodeData?.index === 'number' ? nodeData.index : 0;
-    const promptText = nodeData?.prompt?.trim() || buildStoryboardReferenceImagePrompt(prompt, frameIndex, 4);
+    const storyboardImageCount = Math.max(nodes.filter((node) => node.type === 'storyboardImage').length, 1);
+    const promptText = nodeData?.prompt?.trim() || buildStoryboardReferenceImagePrompt(prompt, frameIndex, storyboardImageCount);
     if (!promptText.trim()) {
       toast.error('Nhập prompt cho ảnh tham chiếu trước');
       return;
@@ -1503,11 +1536,13 @@ function WorkflowCanvas() {
           const index = typeof nodeData?.index === 'number' ? nodeData.index : 0;
           const sourceNode = sourceStoryboardId ? nds.find((candidate) => candidate.id === sourceStoryboardId) : undefined;
           const sourceGenerating = Boolean((sourceNode?.data as any)?.generating);
+          const storyboardImageCount = nds.filter((candidate) => candidate.type === 'storyboardImage').length;
           return { ...node, data: {
             ...node.data,
             index,
             imageUrl: sourceStoryboardId ? storyboardImages[sourceStoryboardId]?.[index] || nodeData?.imageUrl || '' : nodeData?.imageUrl || '',
             prompt: nodeData?.prompt || '',
+            sheetMode: Boolean(nodeData?.sheetMode) || storyboardImageCount === 1,
             generating: sourceGenerating || Boolean(nodeData?.generating),
             onPromptChange: (value: string) => setNodes((nds) => nds.map((candidate) => candidate.id === node.id
               ? { ...candidate, data: { ...candidate.data, prompt: value } }

@@ -41,9 +41,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'google-omni-video-workflow',
     name: 'Tạo video Google Omni',
-    description: 'Ảnh đầu vào + prompt ý tưởng → tự viết kịch bản → 3 ảnh tham chiếu → video Google Omni',
+    description: 'Ảnh đầu vào + prompt ý tưởng → tự viết kịch bản → 1 ảnh storyboard tổng hợp → video Google Omni',
     thumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400&h=300&fit=crop&q=80',
-    nodeCount: 6,
+    nodeCount: 4,
     category: 'preset',
     nodes: [
       { id: 'image-1', type: 'image', position: { x: 60, y: 120 }, data: { label: 'Ảnh đầu vào' } },
@@ -57,33 +57,15 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       {
         id: 'storyboard-image-1',
         type: 'storyboardImage',
-        position: { x: 800, y: 20 },
-        data: { index: 0, label: 'Ảnh tham chiếu 1' },
-      },
-      {
-        id: 'storyboard-image-2',
-        type: 'storyboardImage',
-        position: { x: 800, y: 200 },
-        data: { index: 1, label: 'Ảnh tham chiếu 2' },
-      },
-      {
-        id: 'storyboard-image-3',
-        type: 'storyboardImage',
-        position: { x: 800, y: 380 },
-        data: { index: 2, label: 'Ảnh tham chiếu 3' },
+        position: { x: 800, y: 120 },
+        data: { index: 0, label: 'Storyboard tổng hợp' },
       },
       { id: 'video-1', type: 'video', position: { x: 1110, y: 250 }, data: {} },
     ],
     edges: [
       { id: 'e-image-ref-1', source: 'image-1', target: 'storyboard-image-1', animated: true },
-      { id: 'e-image-ref-2', source: 'image-1', target: 'storyboard-image-2', animated: true },
-      { id: 'e-image-ref-3', source: 'image-1', target: 'storyboard-image-3', animated: true },
       { id: 'e-prompt-ref-1', source: 'prompt-1', target: 'storyboard-image-1', animated: true },
-      { id: 'e-prompt-ref-2', source: 'prompt-1', target: 'storyboard-image-2', animated: true },
-      { id: 'e-prompt-ref-3', source: 'prompt-1', target: 'storyboard-image-3', animated: true },
       { id: 'e-ref-1-video', source: 'storyboard-image-1', target: 'video-1', animated: true },
-      { id: 'e-ref-2-video', source: 'storyboard-image-2', target: 'video-1', animated: true },
-      { id: 'e-ref-3-video', source: 'storyboard-image-3', target: 'video-1', animated: true },
     ],
   },
 ];

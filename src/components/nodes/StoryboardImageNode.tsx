@@ -11,6 +11,7 @@ interface StoryboardImageNodeProps {
     imageUrl?: string;
     prompt?: string;
     generating?: boolean;
+    sheetMode?: boolean;
     label?: string;
     onPromptChange?: (prompt: string) => void;
     onRegenerate?: () => void;
@@ -24,13 +25,14 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
     imageUrl,
     prompt = '',
     generating = false,
+    sheetMode = false,
     label,
     onPromptChange,
     onRegenerate,
     onDelete,
   } = data;
   const [localPrompt, setLocalPrompt] = useState(prompt);
-  const tag = index === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${index - 1}>`;
+  const tag = sheetMode ? 'Storyboard sheet: <FIRST_FRAME>' : index === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${index - 1}>`;
 
   useEffect(() => {
     setLocalPrompt(prompt);
@@ -43,7 +45,7 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
 
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: 260, background: '#111827', border: '1px solid #2563eb55' }}>
+      <div className="node-card nowheel" style={{ width: sheetMode ? 340 : 260, background: '#111827', border: '1px solid #2563eb55' }}>
         <div className="node-header" style={{ background: '#172033', borderBottom: '1px solid #2563eb33', padding: '8px 10px' }}>
           <ImageIcon className="h-3.5 w-3.5 text-blue-300" />
           <span className="text-[11px] font-semibold text-gray-200">{label || `Ảnh tham chiếu ${index + 1}`}</span>
@@ -68,7 +70,7 @@ function StoryboardImageNode({ data }: StoryboardImageNodeProps) {
           {imageUrl ? (
             <div className="overflow-hidden rounded-lg border border-blue-400/20 bg-[#0b111a]">
               <div className="aspect-video w-full overflow-hidden">
-                <img src={imageUrl} alt={`Ảnh tham chiếu ${index + 1}`} className="h-full w-full object-cover" />
+                <img src={imageUrl} alt={sheetMode ? 'Storyboard tổng hợp' : `Ảnh tham chiếu ${index + 1}`} className="h-full w-full object-cover" />
               </div>
             </div>
           ) : (
