@@ -1035,11 +1035,11 @@ function WorkflowCanvas() {
 
     if (videoNodeId) {
       const upstreamNodes = getUpstreamNodes(videoNodeId, edges, nodes);
+      const identityImageUrls: string[] = [];
       const storyboardImageUrls = upstreamNodes
         .filter((upstreamNode) => upstreamNode.type === 'storyboardImage')
         .map((upstreamNode) => getStoryboardImageUrl(upstreamNode, {}, storyboardImages))
         .filter(Boolean);
-      appendUnique(videoImageUrls, storyboardImageUrls);
 
       for (const upstreamNode of upstreamNodes) {
         if (upstreamNode.type === 'storyboardImage') {
@@ -1054,18 +1054,16 @@ function WorkflowCanvas() {
           const promptText = (upstreamNode.data as any)?.prompt?.trim();
           if (!nextPrompt && promptText) nextPrompt = promptText;
         } else if (upstreamNode.type === 'image') {
-          if (storyboardImageUrls.length > 0) continue;
-          appendUnique(videoImageUrls, imageNodeLibraryUrls[upstreamNode.id] || []);
+          appendUnique(identityImageUrls, imageNodeLibraryUrls[upstreamNode.id] || []);
           for (const file of imageNodeFiles[upstreamNode.id] || []) {
             const { url } = await uploadFile(file);
-            appendUnique(videoImageUrls, [url]);
+            appendUnique(identityImageUrls, [url]);
           }
         } else if (upstreamNode.type === 'input') {
-          if (storyboardImageUrls.length > 0) continue;
-          appendUnique(videoImageUrls, inputNodeLibraryUrls[upstreamNode.id] || []);
+          appendUnique(identityImageUrls, inputNodeLibraryUrls[upstreamNode.id] || []);
           for (const file of inputNodeFiles[upstreamNode.id] || []) {
             const { url } = await uploadFile(file);
-            appendUnique(videoImageUrls, [url]);
+            appendUnique(identityImageUrls, [url]);
           }
         } else if (upstreamNode.type === 'references') {
           if (storyboardImageUrls.length > 0) continue;
@@ -1080,11 +1078,14 @@ function WorkflowCanvas() {
           appendUnique(videoImageUrls, nodeResults.map((result) => result.result_url || '').filter(Boolean));
         }
       }
+
+      appendUnique(videoImageUrls, identityImageUrls);
+      appendUnique(videoImageUrls, storyboardImageUrls);
     }
 
     const fallbackImageUrl = results.find(r => r.status === 'completed')?.result_url;
     appendUnique(videoImageUrls, fallbackImageUrl ? [fallbackImageUrl] : []);
-    const omniImageUrls = videoImageUrls.slice(0, 3);
+    const omniImageUrls = videoImageUrls.slice(0, 4);
 
     if (!nextPrompt.trim() && omniImageUrls.length === 0) {
       toast.error('Cần prompt hoặc hình ảnh input');
