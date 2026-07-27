@@ -78,10 +78,10 @@ function StoryboardNode({ data, selected }: StoryboardNodeProps) {
           <div className="border-b border-[#243244] p-2">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[9px] uppercase tracking-wide text-sky-300/70">Storyboard images</span>
-              <span className="text-[9px] text-gray-500">{Math.min(imageUrls.length, 4)}/4 ảnh</span>
+              <span className="text-[9px] text-gray-500">{Math.min(imageUrls.length, 3)}/3 ảnh</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
-              {imageUrls.slice(0, 4).map((url, index) => (
+              {imageUrls.slice(0, 3).map((url, index) => (
                 <div key={`${url}-${index}`} className="overflow-hidden rounded-lg border border-[#243244] bg-[#0b111a]">
                   <div className="aspect-video w-full overflow-hidden">
                     <img src={url} alt={`Storyboard ${index + 1}`} className="h-full w-full object-cover" />

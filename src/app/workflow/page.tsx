@@ -266,13 +266,11 @@ function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number,
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
   const timingStart = Math.round((frameIndex / totalFrames) * 8);
   const timingEnd = Math.round(((frameIndex + 1) / totalFrames) * 8);
-  const segmentRoles = [
-    'Opening beat: establish the scene, main subject, wardrobe, environment, and starting action from <FIRST_FRAME>.',
-    'Development beat: show the main action or conversation progressing, with the same subject continuing naturally from the opening.',
-    'Reaction/detail beat: show supporting subjects, important product/prop/detail, or a closer reaction that supports the story.',
-    'Closing beat: show the final action, CTA/product/service emphasis, or resolved ending of the 8-second video.',
-  ];
-  const segmentRole = segmentRoles[Math.min(frameIndex, segmentRoles.length - 1)];
+  const segmentRole = frameIndex === 0
+    ? 'Opening beat: establish the scene, main subject, wardrobe, environment, and starting action from <FIRST_FRAME>.'
+    : frameIndex === totalFrames - 1
+      ? 'Closing beat: show the final action, CTA/product/service emphasis, or resolved ending of the 8-second video.'
+      : 'Development beat: show the main action, conversation, supporting subjects, product/prop detail, or closer reaction progressing naturally from the opening.';
 
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
 Create one polished cinematic reference image for a Google Omni video workflow.
@@ -730,7 +728,7 @@ function WorkflowCanvas() {
           }
 
         } else if (execNode.type === 'storyboard') {
-          let storyboardImageUrls = [...refImages].slice(0, 4);
+          let storyboardImageUrls = [...refImages].slice(0, 3);
           const savedStoryboard = currentStoryboards[execNode.id]?.trim();
 
           if (savedStoryboard) {
@@ -761,7 +759,7 @@ function WorkflowCanvas() {
             toast('Đang tự viết kịch bản video...', { icon: '🎬' });
             const { storyboard } = await generateVideoStoryboard({
               script: nodePrompt || currentPrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
-              image_urls: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
+              image_urls: refImages.length > 0 ? refImages.slice(0, 3) : undefined,
             });
             script = storyboard;
             nodeResults.__video_script = storyboard;
@@ -784,8 +782,8 @@ function WorkflowCanvas() {
             const res = await generateImage({
               ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
               user_input: referencePrompt,
-              reference_images: refImages.length > 0 ? refImages.slice(0, 4) : undefined,
-              input_images: inputImages.length > 0 ? inputImages.slice(0, 4) : undefined,
+              reference_images: refImages.length > 0 ? refImages.slice(0, 3) : undefined,
+              input_images: inputImages.length > 0 ? inputImages.slice(0, 3) : undefined,
               variation_index: frameIndex + 1,
             });
 
@@ -909,7 +907,7 @@ function WorkflowCanvas() {
             }
           }
 
-          const omniImageUrls = videoImageUrls.slice(0, 4);
+          const omniImageUrls = videoImageUrls.slice(0, 3);
           console.log(`[Flow] Video with ${omniImageUrls.length} images, prompt: ${nodePrompt.slice(0, 50)}`);
 
           setGeneratingVideo(true);
@@ -1054,7 +1052,7 @@ function WorkflowCanvas() {
 
     const fallbackImageUrl = results.find(r => r.status === 'completed')?.result_url;
     appendUnique(videoImageUrls, fallbackImageUrl ? [fallbackImageUrl] : []);
-    const omniImageUrls = videoImageUrls.slice(0, 4);
+    const omniImageUrls = videoImageUrls.slice(0, 3);
 
     if (!nextPrompt.trim() && omniImageUrls.length === 0) {
       toast.error('Cần prompt hoặc hình ảnh input');
@@ -1231,7 +1229,7 @@ function WorkflowCanvas() {
       }
     }
 
-    return imageUrls.slice(0, 4);
+    return imageUrls.slice(0, 3);
   }, [
     edges,
     nodes,
@@ -1307,8 +1305,8 @@ function WorkflowCanvas() {
       const res = await generateImage({
         ...(selectedBrand?.id ? { brand_id: selectedBrand.id } : {}),
         user_input: promptText,
-        reference_images: imageUrls.length > 0 ? imageUrls.slice(0, 4) : undefined,
-        input_images: imageUrls.length > 0 ? imageUrls.slice(0, 4) : undefined,
+        reference_images: imageUrls.length > 0 ? imageUrls.slice(0, 3) : undefined,
+        input_images: imageUrls.length > 0 ? imageUrls.slice(0, 3) : undefined,
         variation_index: frameIndex + 1,
       });
 
