@@ -33,6 +33,7 @@ export const NODE_TYPES_LIST: NodeTypeInfo[] = [
   { type: 'template',   label: 'Mẫu prompt',     icon: FileText,      color: 'indigo',  description: 'Prompt mẫu' },
   { type: 'prompt',     label: 'Prompt',         icon: MessageSquare, color: 'emerald', description: 'Nhập prompt thủ công' },
   { type: 'storyboard', label: 'Storybook',      icon: Clapperboard,  color: 'sky',     description: 'Tạo cảnh theo từng ảnh bằng OpenAI' },
+  { type: 'storyboardImage', label: 'Ảnh Storybook', icon: ImageIcon, color: 'blue', description: 'Ảnh tham chiếu truyền sang video Omni' },
   { type: 'generate',   label: 'Tạo ảnh',        icon: Sparkles,      color: 'rose',    description: 'Tạo hình ảnh' },
   { type: 'video',      label: 'Tạo video',      icon: Video,         color: 'red',     description: 'Tạo video' },
   { type: 'text',       label: 'Văn bản',        icon: Type,          color: 'gray',    description: 'Thêm nội dung vào prompt' },
