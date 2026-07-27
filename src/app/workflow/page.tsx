@@ -265,6 +265,8 @@ function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number,
     return `[Full video storyboard sheet <FIRST_FRAME>]
 Create ONE single polished storyboard/contact-sheet image for a Google Omni video workflow.
 The image must contain the entire 0-10 second video plan in one visual storyboard sheet.
+The output should feel like a TVC commercial plan: strong opening hook, product/service benefit, brand/product hero moment, and concise CTA.
+Input references may contain a product, a real person/model, or both.
 
 [Full approved script]
 ${script}
@@ -278,9 +280,10 @@ ${script}
 - Keep the same person/people from the input image references across all panels.
 - Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
 - Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
-- If the input contains a product/object, preserve its shape, material, label, color, and key details exactly.
+- If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
+- If both product and person are provided, show a natural TVC relationship between the person and product/service without changing either identity.
 - Avoid large text overlays unless the script explicitly requires them; if labels are used, keep them small and inside safe margins.
-- Professional advertising style, realistic lighting, clean composition, family-safe, modest, non-sexual.`;
+- Professional TVC advertising style, realistic lighting, clean composition, family-safe, modest, non-sexual.`;
   }
 
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
@@ -295,6 +298,7 @@ ${script}
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
 Create one polished cinematic reference image for a Google Omni video workflow.
 This image represents ONLY the video segment from ${timingStart}s to ${timingEnd}s.
+The frame should look like a premium TVC commercial still, not a poster. Input references may be product images, real people/models, or both.
 
 [Segment for this reference image]
 ${segmentRole}
@@ -310,8 +314,9 @@ ${script}
 - Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
 - Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
 - Only change camera angle, pose, lighting, background, and scene action as needed for this script beat while keeping the subject recognizably identical.
-- If the input contains a product/object, preserve its shape, material, label, color, and key details exactly.
-- Professional dental/healthcare advertising style, realistic lighting, clean composition.
+- If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
+- If both product and person are provided, show the product naturally with the person when relevant to the TVC beat; do not replace either.
+- Professional TVC advertising style, realistic lighting, clean product/subject composition.
 - No text overlays unless the script explicitly requires readable text.
 - Family-safe, modest styling, non-sexual, commercial-quality still frame.`;
 }
