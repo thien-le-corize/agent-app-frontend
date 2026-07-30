@@ -282,6 +282,32 @@ export async function updateChatbot(id: string, payload: any): Promise<any> {
   return data;
 }
 
+export async function connectFacebookPage(
+  id: string,
+  payload: {
+    page_id: string;
+    page_name?: string;
+    page_access_token: string;
+    verify_token: string;
+    app_secret?: string;
+  },
+): Promise<any> {
+  const current = await getChatbot(id);
+  const settings = {
+    ...(current.settings || {}),
+    facebook: {
+      page_id: payload.page_id,
+      page_name: payload.page_name || '',
+      page_access_token: payload.page_access_token,
+      verify_token: payload.verify_token,
+      app_secret: payload.app_secret || '',
+      connected_at: new Date().toISOString(),
+      status: 'connected',
+    },
+  };
+  return updateChatbot(id, { settings });
+}
+
 export async function deleteChatbot(id: string): Promise<void> {
   await api.delete(`/chatbot-training/chatbots/${id}`);
 }
