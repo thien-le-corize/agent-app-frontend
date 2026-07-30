@@ -266,7 +266,7 @@ function buildStoryboardReferenceImagePrompt(script: string, frameIndex: number,
 Create ONE single polished storyboard/contact-sheet image for a Google Omni video workflow.
 The image must contain the entire 0-10 second video plan in one visual storyboard sheet.
 The output should feel like a TVC commercial plan: strong opening hook, product/service benefit, brand/product hero moment, and concise CTA.
-Input references may contain a product, a real person/model, or both.
+Input references may contain a product, a human subject/model, or both.
 
 [Full approved script]
 ${script}
@@ -277,13 +277,13 @@ ${script}
 - If the script is very simple, use fewer panels, but never more than 6.
 - Each panel must show a different moment from the script with consistent subject identity, wardrobe, setting style, lighting, and color grade.
 - Use cinematic composition, clear subject placement, and readable visual progression from left to right, top to bottom.
-- Keep the same person/people from the input image references across all panels.
-- Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
+- Keep subject and wardrobe continuity from the input image references across all panels.
+- Do not redesign the subject, wardrobe, accessories, makeup, or distinctive styling details.
 - Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
 - If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
 - If both product and person are provided, show a natural TVC relationship between the person and product/service without changing either identity.
 - Avoid large text overlays unless the script explicitly requires them; if labels are used, keep them small and inside safe margins.
-- Real photography look for any real person: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
+- Natural photography look for any human subject: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
 - Avoid artificial beauty/render keywords and effects: no hyperrealistic, no 8k, no cinematic lighting, no masterpiece, no smooth skin, no waxy/plastic skin, no harsh 3D/game lighting.
 - Avoid ID-card/passport-photo stiffness. Each person should have a slight lived-in motion pose when appropriate to the script: small head tilt, relaxed shoulder shift, natural hand gesture, or mouth slightly open as if speaking softly.
 - Professional TVC advertising style, realistic natural lighting, clean composition, family-safe, modest, non-sexual.`;
@@ -301,7 +301,7 @@ ${script}
   return `[Video reference frame ${frameIndex + 1}/${totalFrames} ${start}]
 Create one polished cinematic reference image for a Google Omni video workflow.
 This image represents ONLY the video segment from ${timingStart}s to ${timingEnd}s.
-The frame should look like a premium TVC commercial still, not a poster. Input references may be product images, real people/models, or both.
+The frame should look like a premium TVC commercial still, not a poster. Input references may be product images, human subjects/models, or both.
 
 [Segment for this reference image]
 ${segmentRole}
@@ -313,13 +313,13 @@ ${script}
 
 [Frame requirement]
 - Make this frame visually distinct from the other frames.
-- Character consistency is mandatory: use the exact same person/people from the input image references across every reference frame.
-- Do not change the person's face, age, hairstyle, hair color, body shape, skin tone, clothing, clothing color, accessories, makeup, or distinctive details.
+- Subject continuity is mandatory: keep the same main subject styling and wardrobe continuity from the input image references across every reference frame.
+- Do not redesign the subject, wardrobe, accessories, makeup, or distinctive styling details.
 - Preserve the original outfit exactly. Do not redesign clothing, do not change uniforms, and do not make the clothing more formal/casual unless the user explicitly asks.
-- Only change camera angle, pose, lighting, background, and scene action as needed for this script beat while keeping the subject recognizably identical.
+- Only change camera angle, pose, lighting, background, and scene action as needed for this script beat while keeping visual continuity.
 - If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
 - If both product and person are provided, show the product naturally with the person when relevant to the TVC beat; do not replace either.
-- Real photography look for any real person: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
+- Natural photography look for any human subject: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
 - Avoid artificial beauty/render keywords and effects: no hyperrealistic, no 8k, no cinematic lighting, no masterpiece, no smooth skin, no waxy/plastic skin, no harsh 3D/game lighting.
 - Avoid ID-card/passport-photo stiffness. The person should feel caught mid-moment, with slight natural movement when appropriate: small head tilt, relaxed shoulder shift, natural hand gesture, or mouth slightly open as if speaking softly.
 - Professional TVC advertising style, realistic natural lighting, clean product/subject composition.
