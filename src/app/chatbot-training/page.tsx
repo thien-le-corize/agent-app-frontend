@@ -24,6 +24,8 @@ import {
   updateChatbot,
   connectFacebookPage,
   getFacebookOAuthUrl,
+  getFacebookOAuthPages,
+  connectFacebookOAuthPage,
 } from '@/lib/api';
 import {
   TrainingCategory,
@@ -129,6 +131,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   const [showFacebookModal, setShowFacebookModal] = useState(false);
   const [connectingFacebook, setConnectingFacebook] = useState(false);
   const [manualFacebookSetup, setManualFacebookSetup] = useState(false);
+  const [facebookOAuthPages, setFacebookOAuthPages] = useState<Array<{ id: string; name: string; tasks?: string[] }>>([]);
   const [facebookForm, setFacebookForm] = useState({
     page_id: '',
     page_name: '',
@@ -157,14 +160,15 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
       setFaqs(faqsData);
       setChatbots(botsData);
       if (!selectedBotId && botsData.length > 0) {
-        setSelectedBotId(botsData[0].id);
-        if (botsData[0].prompt) setPromptContent(botsData[0].prompt);
-        if (botsData[0].model) setModel(botsData[0].model);
-        if (botsData[0].settings?.auto_suggest) setAutoSuggest(botsData[0].settings.auto_suggest);
-        if (botsData[0].settings?.opening_questions) setOpeningQuestions(botsData[0].settings.opening_questions);
-        if (botsData[0].settings?.segments) setSegments(botsData[0].settings.segments);
-        setAiRules(Array.isArray(botsData[0].settings?.rules) ? botsData[0].settings.rules : DEFAULT_AI_RULES);
-        setIdleSettings(normalizeIdleSettings(botsData[0].settings?.idle_settings));
+        const query = new URLSearchParams(window.location.search);
+        const queryBotId = query.get('bot');
+        const initialBot = botsData.find((bot) => bot.id === queryBotId) || botsData[0];
+        applySelectedBot(initialBot);
+        if (query.get('facebook') === 'select_page') {
+          setShowFacebookModal(true);
+          setManualFacebookSetup(false);
+          loadFacebookOAuthPages(initialBot.id);
+        }
       }
     } catch { toast.error('Không thể tải dữ liệu'); }
     finally { setLoading(false); }
@@ -198,7 +202,11 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   const handleSwitchBot = (botId: string) => {
     const bot = chatbots.find((b) => b.id === botId);
     if (!bot) return;
-    setSelectedBotId(botId);
+    applySelectedBot(bot);
+  };
+
+  const applySelectedBot = (bot: any) => {
+    setSelectedBotId(bot.id);
     if (bot.prompt) setPromptContent(bot.prompt);
     if (bot.model) setModel(bot.model);
     setAutoSuggest(bot.settings?.auto_suggest || false);
@@ -222,7 +230,17 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
       app_secret: facebook.app_secret || '',
     });
     setManualFacebookSetup(false);
+    loadFacebookOAuthPages(selectedBotId);
     setShowFacebookModal(true);
+  };
+
+  const loadFacebookOAuthPages = async (botId: string) => {
+    try {
+      const { pages } = await getFacebookOAuthPages(botId);
+      setFacebookOAuthPages(pages);
+    } catch {
+      setFacebookOAuthPages([]);
+    }
   };
 
   const handleFacebookOAuth = async () => {
@@ -268,6 +286,22 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
     }
   };
 
+  const handleSelectFacebookPage = async (pageId: string) => {
+    if (!selectedBotId) return;
+    try {
+      setConnectingFacebook(true);
+      const updatedBot = await connectFacebookOAuthPage(selectedBotId, pageId);
+      setChatbots((prev) => prev.map((bot) => bot.id === selectedBotId ? updatedBot : bot));
+      setFacebookOAuthPages([]);
+      setShowFacebookModal(false);
+      toast.success(`Đã kết nối fanpage ${updatedBot.settings?.facebook?.page_name || ''}`.trim());
+    } catch {
+      toast.error('Không thể kết nối fanpage này');
+    } finally {
+      setConnectingFacebook(false);
+    }
+  };
+
   const handleSaveBot = async () => {
     if (!selectedBotId) return;
     try {
@@ -305,9 +339,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   };
 
   const selectedBot = chatbots.find(b => b.id === selectedBotId);
-  const facebookWebhookUrl = selectedBotId
-    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/chatbot-training/facebook/webhook/${selectedBotId}`
-    : '';
+  const facebookWebhookUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/chatbot-training/facebook/webhook`;
   const promptWithRules = `${promptContent}
 
 ## AI RULES
@@ -580,6 +612,37 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
                   Đăng nhập Facebook và chọn fanpage
                 </button>
               </div>
+
+              {facebookOAuthPages.length > 0 && (
+                <div className="rounded-lg p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                  <div className="text-[12px] font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+                    Chọn fanpage để gắn với chatbot này
+                  </div>
+                  <div className="space-y-2">
+                    {facebookOAuthPages.map((page) => (
+                      <button
+                        key={page.id}
+                        onClick={() => handleSelectFacebookPage(page.id)}
+                        disabled={connectingFacebook}
+                        className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left disabled:opacity-50"
+                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}
+                      >
+                        <div>
+                          <div className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {page.name}
+                          </div>
+                          <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                            Page ID: {page.id}
+                          </div>
+                        </div>
+                        <span className="text-[12px] font-medium" style={{ color: 'var(--accent-blue)' }}>
+                          Kết nối
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={() => setManualFacebookSetup((prev) => !prev)}

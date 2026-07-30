@@ -315,6 +315,16 @@ export async function getFacebookOAuthUrl(id: string, returnUrl: string): Promis
   return data;
 }
 
+export async function getFacebookOAuthPages(id: string): Promise<{ pages: Array<{ id: string; name: string; tasks?: string[] }> }> {
+  const { data } = await api.get(`/chatbot-training/facebook/oauth-pages/${id}`);
+  return data;
+}
+
+export async function connectFacebookOAuthPage(id: string, pageId: string): Promise<any> {
+  const { data } = await api.post(`/chatbot-training/facebook/connect-page/${id}`, { page_id: pageId });
+  return data;
+}
+
 export async function deleteChatbot(id: string): Promise<void> {
   await api.delete(`/chatbot-training/chatbots/${id}`);
 }
