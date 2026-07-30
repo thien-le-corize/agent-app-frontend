@@ -23,6 +23,7 @@ import {
   createChatbot,
   updateChatbot,
   connectFacebookPage,
+  getFacebookOAuthUrl,
 } from '@/lib/api';
 import {
   TrainingCategory,
@@ -127,6 +128,7 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showFacebookModal, setShowFacebookModal] = useState(false);
   const [connectingFacebook, setConnectingFacebook] = useState(false);
+  const [manualFacebookSetup, setManualFacebookSetup] = useState(false);
   const [facebookForm, setFacebookForm] = useState({
     page_id: '',
     page_name: '',
@@ -219,7 +221,25 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
       verify_token: facebook.verify_token || '',
       app_secret: facebook.app_secret || '',
     });
+    setManualFacebookSetup(false);
     setShowFacebookModal(true);
+  };
+
+  const handleFacebookOAuth = async () => {
+    if (!selectedBotId) {
+      toast.error('Chọn chatbot trước khi kết nối fanpage');
+      return;
+    }
+
+    try {
+      setConnectingFacebook(true);
+      const returnUrl = `${window.location.origin}/chatbot-training?bot=${selectedBotId}`;
+      const { url } = await getFacebookOAuthUrl(selectedBotId, returnUrl);
+      window.location.href = url;
+    } catch {
+      toast.error('Không thể mở Facebook Login. Kiểm tra FACEBOOK_APP_ID/SECRET và URL callback.');
+      setConnectingFacebook(false);
+    }
   };
 
   const handleConnectFacebook = async () => {
@@ -548,16 +568,41 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
             <div className="space-y-4">
               <div>
                 <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                  Tên fanpage
+                  Kết nối trực tiếp
                 </label>
-                <input
-                  value={facebookForm.page_name}
-                  onChange={(e) => setFacebookForm((prev) => ({ ...prev, page_name: e.target.value }))}
-                  placeholder="VD: Dr.Wondersmile"
-                  className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none"
-                  style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                />
+                <button
+                  onClick={handleFacebookOAuth}
+                  disabled={connectingFacebook}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-[13px] font-semibold disabled:opacity-50"
+                  style={{ background: '#1877f2', color: 'white' }}
+                >
+                  {connectingFacebook ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
+                  Đăng nhập Facebook và chọn fanpage
+                </button>
               </div>
+
+              <button
+                onClick={() => setManualFacebookSetup((prev) => !prev)}
+                className="text-[12px] underline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {manualFacebookSetup ? 'Ẩn cấu hình thủ công' : 'Cấu hình thủ công bằng token'}
+              </button>
+
+              {manualFacebookSetup && (
+                <>
+                  <div>
+                    <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                      Tên fanpage
+                    </label>
+                    <input
+                      value={facebookForm.page_name}
+                      onChange={(e) => setFacebookForm((prev) => ({ ...prev, page_name: e.target.value }))}
+                      placeholder="VD: Dr.Wondersmile"
+                      className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none"
+                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
               <div>
                 <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
                   Page ID
@@ -608,6 +653,8 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
                   style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                 />
               </div>
+                </>
+              )}
 
               <div className="rounded-lg p-3 text-[12px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
                 <div className="mb-2">Webhook URL dùng trong Facebook Developer:</div>
@@ -626,15 +673,17 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
               >
                 Hủy
               </button>
-              <button
-                onClick={handleConnectFacebook}
-                disabled={connectingFacebook}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50"
-                style={{ background: 'var(--accent-blue)', color: 'white' }}
-              >
-                {connectingFacebook && <Loader2 className="w-4 h-4 animate-spin" />}
-                Lưu kết nối
-              </button>
+              {manualFacebookSetup && (
+                <button
+                  onClick={handleConnectFacebook}
+                  disabled={connectingFacebook}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50"
+                  style={{ background: 'var(--accent-blue)', color: 'white' }}
+                >
+                  {connectingFacebook && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Lưu thủ công
+                </button>
+              )}
             </div>
           </div>
         </div>

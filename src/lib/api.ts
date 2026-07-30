@@ -308,6 +308,13 @@ export async function connectFacebookPage(
   return updateChatbot(id, { settings });
 }
 
+export async function getFacebookOAuthUrl(id: string, returnUrl: string): Promise<{ url: string }> {
+  const { data } = await api.get(`/chatbot-training/facebook/oauth-url/${id}`, {
+    params: { return_url: returnUrl },
+  });
+  return data;
+}
+
 export async function deleteChatbot(id: string): Promise<void> {
   await api.delete(`/chatbot-training/chatbots/${id}`);
 }
