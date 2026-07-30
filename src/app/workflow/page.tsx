@@ -283,7 +283,10 @@ ${script}
 - If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
 - If both product and person are provided, show a natural TVC relationship between the person and product/service without changing either identity.
 - Avoid large text overlays unless the script explicitly requires them; if labels are used, keep them small and inside safe margins.
-- Professional TVC advertising style, realistic lighting, clean composition, family-safe, modest, non-sexual.`;
+- Real photography look for any real person: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
+- Avoid artificial beauty/render keywords and effects: no hyperrealistic, no 8k, no cinematic lighting, no masterpiece, no smooth skin, no waxy/plastic skin, no harsh 3D/game lighting.
+- Avoid ID-card/passport-photo stiffness. Each person should have a slight lived-in motion pose when appropriate to the script: small head tilt, relaxed shoulder shift, natural hand gesture, or mouth slightly open as if speaking softly.
+- Professional TVC advertising style, realistic natural lighting, clean composition, family-safe, modest, non-sexual.`;
   }
 
   const start = frameIndex === 0 ? '<FIRST_FRAME>' : `<IMAGE_REF_${frameIndex - 1}>`;
@@ -316,7 +319,10 @@ ${script}
 - Only change camera angle, pose, lighting, background, and scene action as needed for this script beat while keeping the subject recognizably identical.
 - If the input contains a product/object, preserve its shape, material, label, logo, packaging, color, scale, surface texture, and key details exactly.
 - If both product and person are provided, show the product naturally with the person when relevant to the TVC beat; do not replace either.
-- Professional TVC advertising style, realistic lighting, clean product/subject composition.
+- Real photography look for any real person: raw photo, 35mm photograph, shot on Sony A7IV, natural lighting, subsurface scattering, real skin texture, fine pores, subtle imperfections, gentle film grain.
+- Avoid artificial beauty/render keywords and effects: no hyperrealistic, no 8k, no cinematic lighting, no masterpiece, no smooth skin, no waxy/plastic skin, no harsh 3D/game lighting.
+- Avoid ID-card/passport-photo stiffness. The person should feel caught mid-moment, with slight natural movement when appropriate: small head tilt, relaxed shoulder shift, natural hand gesture, or mouth slightly open as if speaking softly.
+- Professional TVC advertising style, realistic natural lighting, clean product/subject composition.
 - No text overlays unless the script explicitly requires readable text.
 - Family-safe, modest styling, non-sexual, commercial-quality still frame.`;
 }
