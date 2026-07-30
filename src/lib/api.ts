@@ -325,6 +325,11 @@ export async function connectFacebookOAuthPage(id: string, pageId: string): Prom
   return data;
 }
 
+export async function syncFacebookProfile(id: string): Promise<{ status: string }> {
+  const { data } = await api.post(`/chatbot-training/facebook/sync-profile/${id}`);
+  return data;
+}
+
 export async function deleteChatbot(id: string): Promise<void> {
   await api.delete(`/chatbot-training/chatbots/${id}`);
 }

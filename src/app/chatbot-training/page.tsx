@@ -26,6 +26,7 @@ import {
   getFacebookOAuthUrl,
   getFacebookOAuthPages,
   connectFacebookOAuthPage,
+  syncFacebookProfile,
 } from '@/lib/api';
 import {
   TrainingCategory,
@@ -297,6 +298,19 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
       toast.success(`Đã kết nối fanpage ${updatedBot.settings?.facebook?.page_name || ''}`.trim());
     } catch {
       toast.error('Không thể kết nối fanpage này');
+    } finally {
+      setConnectingFacebook(false);
+    }
+  };
+
+  const handleSyncFacebookProfile = async () => {
+    if (!selectedBotId) return;
+    try {
+      setConnectingFacebook(true);
+      await syncFacebookProfile(selectedBotId);
+      toast.success('Đã đồng bộ mẫu tin nhắn nhanh lên fanpage');
+    } catch {
+      toast.error('Không thể đồng bộ mẫu tin nhắn nhanh');
     } finally {
       setConnectingFacebook(false);
     }
@@ -641,6 +655,23 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {selectedBot?.settings?.facebook?.status === 'connected' && (
+                <div className="rounded-lg p-3" style={{ background: 'var(--accent-blue-muted)', border: '1px solid var(--border)' }}>
+                  <div className="text-[12px] mb-3" style={{ color: 'var(--text-primary)' }}>
+                    Fanpage đã kết nối: {selectedBot.settings.facebook.page_name || selectedBot.settings.facebook.page_id}
+                  </div>
+                  <button
+                    onClick={handleSyncFacebookProfile}
+                    disabled={connectingFacebook}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50"
+                    style={{ background: 'var(--accent-blue)', color: 'white' }}
+                  >
+                    {connectingFacebook && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Đồng bộ mẫu tin nhắn nhanh
+                  </button>
                 </div>
               )}
 
