@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Brand, Template, ImageGeneration, VideoGeneration, TrainingCategory, TrainingPhrase, TrainingScenario, TrainingFAQ, TrainingStats } from '@/types';
+import { clearAuthSession, getAuthToken } from './auth';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
@@ -7,6 +8,34 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+api.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      clearAuthSession();
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    }
+    return Promise.reject(error);
+  },
+);
+
+// Auth
+export async function login(payload: {
+  username: string;
+  password: string;
+}): Promise<{ token: string; user: { username: string }; expires_in: number }> {
+  const { data } = await api.post('/auth/login', payload);
+  return data;
+}
 
 // Brands
 export async function getBrands(): Promise<Brand[]> {

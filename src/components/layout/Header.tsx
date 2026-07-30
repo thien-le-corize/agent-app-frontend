@@ -1,8 +1,9 @@
 'use client';
 
-import { ChevronRight, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { ReactNode } from 'react';
+import { logout } from '@/lib/auth';
 
 interface BreadcrumbItem {
   label: string;
@@ -142,10 +143,12 @@ export default function Header({
       <div className="flex items-center gap-2">
         {actions}
         <button
+          onClick={logout}
+          title="Đăng xuất"
           className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <MoreHorizontal className="w-4 h-4" />
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
     </header>
