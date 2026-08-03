@@ -17,6 +17,7 @@ import {
   LayoutTemplate,
   FolderOpen,
   Plus,
+  Trash2,
 } from 'lucide-react';
 
 export interface NodeTypeInfo {
@@ -64,6 +65,7 @@ interface NodePaletteProps {
   newProjectName?: string;
   creatingProject?: boolean;
   onSelectProject?: (projectId: string) => void;
+  onDeleteProject?: (project: Project) => void;
   onNewProjectNameChange?: (name: string) => void;
   onCreateProject?: () => void;
 }
@@ -76,6 +78,7 @@ export default function NodePalette({
   newProjectName = '',
   creatingProject = false,
   onSelectProject,
+  onDeleteProject,
   onNewProjectNameChange,
   onCreateProject,
 }: NodePaletteProps) {
@@ -159,11 +162,18 @@ export default function NodePalette({
                 ) : projects.map((project) => {
                   const active = project.id === selectedProjectId;
                   return (
-                    <button
+                    <div
                       key={project.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onSelectProject?.(project.id)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[var(--bg-hover)]"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onSelectProject?.(project.id);
+                        }
+                      }}
+                      className="group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[var(--bg-hover)]"
                       style={{
                         background: active ? 'var(--accent-muted)' : 'transparent',
                         border: active ? '1px solid var(--accent)' : '1px solid transparent',
@@ -178,7 +188,26 @@ export default function NodePalette({
                           {project.brand?.name || (project.brand_id ? 'Đã có brand' : 'Chưa có brand')}
                         </p>
                       </div>
-                    </button>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteProject?.(project);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onDeleteProject?.(project);
+                          }
+                        }}
+                        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] opacity-60 transition hover:bg-red-500/10 hover:text-red-400 hover:opacity-100"
+                        title="Xóa dự án"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
                   );
                 })}
               </div>

@@ -125,6 +125,10 @@ export async function updateProject(id: string, payload: {
   return data;
 }
 
+export async function deleteProject(id: string): Promise<void> {
+  await api.delete(`/projects/${id}`);
+}
+
 // Image Generation
 export async function generateImage(payload: {
   project_id?: string;

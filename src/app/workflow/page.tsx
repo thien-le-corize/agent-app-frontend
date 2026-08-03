@@ -21,7 +21,7 @@ import 'reactflow/dist/style.css';
 import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject, deleteProject } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Save } from 'lucide-react';
@@ -456,7 +456,7 @@ function WorkflowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(defaultWorkflow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(defaultWorkflow.edges);
 
-  const loadProjectWorkflow = useCallback((project: Project) => {
+  const loadProjectWorkflow = useCallback((project: Pick<Project, 'workflow'>) => {
     const workflow = normalizeWorkflowDraft(project.workflow);
     setNodes(workflow.nodes);
     setEdges(workflow.edges);
@@ -571,6 +571,40 @@ function WorkflowCanvas() {
       setCreatingProject(false);
     }
   }, [newProjectName, creatingProject, loadProjectWorkflow]);
+
+  const handleDeleteProject = useCallback(async (project: Project) => {
+    const confirmed = window.confirm(`Xóa dự án "${project.name}"?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteProject(project.id);
+      const remainingProjects = projects.filter((item) => item.id !== project.id);
+      setProjects(remainingProjects);
+
+      if (selectedProject?.id === project.id) {
+        const nextProject = remainingProjects[0] || null;
+        setSelectedProject(nextProject);
+        if (nextProject) {
+          const projectBrand = resolveProjectBrand(nextProject, brands);
+          if (projectBrand && !brands.some((brand) => brand.id === projectBrand.id)) {
+            setBrands((prev) => [...prev, projectBrand]);
+          }
+          setSelectedBrand(projectBrand);
+          localStorage.setItem('selected_project_id', nextProject.id);
+          loadProjectWorkflow(nextProject);
+        } else {
+          setSelectedBrand(null);
+          localStorage.removeItem('selected_project_id');
+          loadProjectWorkflow({ workflow: getInitialWorkflow() });
+        }
+      }
+
+      toast.success('Đã xóa dự án');
+    } catch (error) {
+      console.error('Delete project error:', error);
+      toast.error('Xóa dự án thất bại');
+    }
+  }, [projects, selectedProject, brands, loadProjectWorkflow]);
 
   const handleSelectBrand = useCallback(async (brand: Brand | null) => {
     if (!brand) {
@@ -1888,6 +1922,7 @@ function WorkflowCanvas() {
         newProjectName={newProjectName}
         creatingProject={creatingProject}
         onSelectProject={handleSelectProject}
+        onDeleteProject={handleDeleteProject}
         onNewProjectNameChange={setNewProjectName}
         onCreateProject={handleCreateProject}
       />
