@@ -523,16 +523,28 @@ function WorkflowCanvas() {
   }), [nodes, edges, scannedPrompt]);
 
   const handleSelectProject = useCallback((projectId: string) => {
+    if (!selectedBrand) {
+      toast.error('Chọn brand trước khi chọn dự án');
+      return;
+    }
     const project = projects.find((item) => item.id === projectId) || null;
+    if (project && project.brand_id !== selectedBrand.id) {
+      toast.error('Dự án này thuộc brand khác');
+      return;
+    }
     setSelectedProject(project);
     if (!project) return;
     localStorage.setItem('selected_project_id', project.id);
     loadProjectWorkflow(project);
-  }, [projects, loadProjectWorkflow]);
+  }, [projects, selectedBrand, loadProjectWorkflow]);
 
   const handleCreateProject = useCallback(async () => {
     const name = newProjectName.trim();
     if (!name || creatingProject) return;
+    if (!selectedBrand) {
+      toast.error('Chọn brand trước khi tạo dự án');
+      return;
+    }
 
     setCreatingProject(true);
     try {
@@ -546,7 +558,7 @@ function WorkflowCanvas() {
 
       const project = await createProject({
         name,
-        brand_id: selectedBrand?.id,
+        brand_id: selectedBrand.id,
         workflow: initialWorkflow,
       });
       setProjects((prev) => [project, ...prev]);
@@ -565,8 +577,16 @@ function WorkflowCanvas() {
   }, [newProjectName, creatingProject, loadProjectWorkflow, selectedBrand?.id]);
 
   const handleSaveProjectWorkflow = useCallback(async () => {
+    if (!selectedBrand) {
+      toast.error('Chọn brand trước khi lưu workflow');
+      return;
+    }
     if (!selectedProject) {
       toast.error('Chọn dự án trước khi lưu workflow');
+      return;
+    }
+    if (selectedProject.brand_id && selectedProject.brand_id !== selectedBrand.id) {
+      toast.error('Dự án đang chọn thuộc brand khác');
       return;
     }
 
@@ -574,7 +594,7 @@ function WorkflowCanvas() {
       const workflow = buildCurrentWorkflowPayload();
       const updated = await updateProject(selectedProject.id, {
         workflow,
-        brand_id: selectedBrand?.id || selectedProject.brand_id || null,
+        brand_id: selectedBrand.id,
       });
       setSelectedProject(updated);
       setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
@@ -583,7 +603,7 @@ function WorkflowCanvas() {
       console.error('Save project workflow error:', error);
       toast.error('Lưu workflow thất bại');
     }
-  }, [selectedProject, selectedBrand?.id, buildCurrentWorkflowPayload]);
+  }, [selectedProject, selectedBrand, buildCurrentWorkflowPayload]);
 
   const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
     event.preventDefault();
@@ -705,12 +725,20 @@ function WorkflowCanvas() {
 
   const handleRunFlow = useCallback(async (count?: number) => {
     const currentProject = selectedProjectRef.current;
+    const currentBrand = selectedBrandRef.current;
+    if (!currentBrand) {
+      toast.error('Chọn brand trước khi chạy workflow');
+      return;
+    }
     if (!currentProject) {
       toast.error('Tạo hoặc chọn dự án trước khi chạy workflow');
       return;
     }
+    if (currentProject.brand_id !== currentBrand.id) {
+      toast.error('Dự án đang chọn không thuộc brand hiện tại');
+      return;
+    }
 
-    const currentBrand = selectedBrandRef.current;
     const currentPrompt = promptRef.current;
     const currentScannedPrompt = scannedPromptRef.current;
     const currentComposedPrompt = composePrompt(currentScannedPrompt, currentPrompt);
@@ -1173,7 +1201,14 @@ function WorkflowCanvas() {
       toast.error('Chọn dự án trước khi tạo lại hình');
       return;
     }
-    if (!currentBrand) return;
+    if (!currentBrand) {
+      toast.error('Chọn brand trước khi tạo lại hình');
+      return;
+    }
+    if (currentProject.brand_id !== currentBrand.id) {
+      toast.error('Dự án đang chọn không thuộc brand hiện tại');
+      return;
+    }
 
     const updatedResults = [...results];
     updatedResults[index] = { ...updatedResults[index], status: 'processing' as const };
@@ -1224,8 +1259,17 @@ function WorkflowCanvas() {
     videoStyle?: 'tvc' | 'intro';
   }, videoNodeId?: string) => {
     const currentProject = selectedProjectRef.current;
+    const currentBrand = selectedBrandRef.current;
+    if (!currentBrand) {
+      toast.error('Chọn brand trước khi tạo video');
+      return;
+    }
     if (!currentProject) {
       toast.error('Tạo hoặc chọn dự án trước khi tạo video');
+      return;
+    }
+    if (currentProject.brand_id !== currentBrand.id) {
+      toast.error('Dự án đang chọn không thuộc brand hiện tại');
       return;
     }
 
@@ -1518,8 +1562,16 @@ function WorkflowCanvas() {
   }, [edges, nodes, prompt, scannedPrompt, setNodes, collectImageUrlsForNode]);
 
   const regenerateStoryboardImageNode = useCallback(async (storyboardImageNodeId: string) => {
+    if (!selectedBrand) {
+      toast.error('Chọn brand trước khi tạo lại ảnh tham chiếu');
+      return;
+    }
     if (!selectedProject) {
       toast.error('Chọn dự án trước khi tạo lại ảnh tham chiếu');
+      return;
+    }
+    if (selectedProject.brand_id !== selectedBrand.id) {
+      toast.error('Dự án đang chọn không thuộc brand hiện tại');
       return;
     }
 
@@ -1568,7 +1620,7 @@ function WorkflowCanvas() {
       ));
       toast.error('Tạo lại ảnh tham chiếu thất bại');
     }
-  }, [nodes, prompt, selectedBrand?.id, selectedProject, setNodes, collectImageUrlsForNode]);
+  }, [nodes, prompt, selectedBrand, selectedProject, setNodes, collectImageUrlsForNode]);
 
   const handleCreateStoryboardFromPrompt = useCallback(async (promptNodeId: string, script: string) => {
     const cleanScript = script.trim();
@@ -1865,9 +1917,10 @@ function WorkflowCanvas() {
               <select
                 value={selectedProject?.id || ''}
                 onChange={(event) => handleSelectProject(event.target.value)}
+                disabled={!selectedBrand}
                 className="project-select min-w-[170px] rounded-md border border-transparent px-1 py-1 text-[12px] font-medium outline-none"
               >
-                <option value="">Chọn dự án</option>
+                <option value="">{selectedBrand ? 'Chọn dự án' : 'Chọn brand trước'}</option>
                 {visibleProjects.map((project) => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
@@ -1883,7 +1936,7 @@ function WorkflowCanvas() {
               />
               <button
                 onClick={handleCreateProject}
-                disabled={!newProjectName.trim() || creatingProject}
+                disabled={!selectedBrand || !newProjectName.trim() || creatingProject}
                 className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-white disabled:cursor-not-allowed disabled:opacity-50"
                 title={selectedBrand ? `Tạo dự án cho ${selectedBrand.name}` : 'Tạo dự án'}
               >
@@ -1912,9 +1965,9 @@ function WorkflowCanvas() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleRunFlow()}
-              disabled={generating || !selectedProject}
+              disabled={generating || !selectedBrand || !selectedProject}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
-                !generating && selectedProject
+                !generating && selectedBrand && selectedProject
                   ? 'bg-[var(--accent)] text-white hover:opacity-90'
                   : generating
                     ? 'bg-[var(--accent-yellow)] text-black cursor-wait'
@@ -1932,7 +1985,7 @@ function WorkflowCanvas() {
 
         {/* Canvas */}
         <div className="flex-1" ref={reactFlowWrapper}>
-          {selectedProject ? (
+          {selectedBrand && selectedProject ? (
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -1975,10 +2028,12 @@ function WorkflowCanvas() {
               <div className="w-[420px] rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <FolderOpen className="h-5 w-5 text-[var(--accent)]" />
-                  <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">Tạo dự án trước</h2>
+                  <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">{selectedBrand ? 'Tạo dự án trước' : 'Chọn brand trước'}</h2>
                 </div>
                 <p className="mb-4 text-[13px] leading-relaxed text-[var(--text-secondary)]">
-                  Workflow tạo ảnh và tạo video sẽ được lưu riêng theo từng dự án. Tạo hoặc chọn dự án ở thanh trên để bắt đầu.
+                  {selectedBrand
+                    ? `Workflow của ${selectedBrand.name} chỉ dùng dự án thuộc brand này. Tạo hoặc chọn dự án để bắt đầu.`
+                    : 'Mỗi dự án chỉ thuộc một brand. Chọn brand ở node Thương hiệu trước, rồi hệ thống sẽ tạo/chọn dự án riêng cho brand đó.'}
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -1992,7 +2047,7 @@ function WorkflowCanvas() {
                   />
                   <button
                     onClick={handleCreateProject}
-                    disabled={!newProjectName.trim() || creatingProject}
+                    disabled={!selectedBrand || !newProjectName.trim() || creatingProject}
                     className="rounded-md bg-[var(--accent)] px-3 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Tạo
