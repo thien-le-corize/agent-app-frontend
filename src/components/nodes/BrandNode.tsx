@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from 'reactflow';
-import { Palette, Plus, Check, Pencil, Trash2, Wand2 } from 'lucide-react';
+import { Palette, Check, Pencil, Trash2, Wand2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface BrandNodeProps {
@@ -9,7 +9,6 @@ interface BrandNodeProps {
     brands?: any[];
     selectedBrand?: any;
     onSelect?: (brand: any) => void;
-    onCreateNew?: () => void;
     onEdit?: (brand: any) => void;
     onAnalyzeBrand?: () => void | Promise<void>;
     analyzingBrand?: boolean;
@@ -19,7 +18,7 @@ interface BrandNodeProps {
 }
 
 function BrandNode({ data }: BrandNodeProps) {
-  const { brands = [], selectedBrand, onSelect, onCreateNew, onEdit, onAnalyzeBrand, analyzingBrand, onDeleteBrand, onDelete } = data;
+  const { brands = [], selectedBrand, onSelect, onEdit, onAnalyzeBrand, analyzingBrand, onDeleteBrand, onDelete } = data;
 
   return (
     <NodeWrapper onDelete={onDelete}>
@@ -101,13 +100,6 @@ function BrandNode({ data }: BrandNodeProps) {
                 ))}
                 {brands.length === 0 && <p className="text-[10px] text-gray-600 text-center py-3">Chưa có brand nào</p>}
               </div>
-              <button
-                onClick={() => onCreateNew?.()}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] text-gray-400 hover:text-white transition"
-                style={{ border: '1px dashed #2a2a2a', background: 'transparent' }}
-              >
-                <Plus className="w-3.5 h-3.5" /> Tạo brand mới
-              </button>
             </>
           )}
         </div>
