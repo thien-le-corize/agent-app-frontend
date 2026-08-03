@@ -150,67 +150,66 @@ export default function NodePalette({
               <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{projects.length}</span>
             </div>
 
-            {selectedBrandName ? (
-              <div className="space-y-1.5">
-                <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
-                  {projects.length === 0 ? (
-                    <p className="rounded-lg px-2 py-2 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
-                      Chưa có dự án cho brand này
-                    </p>
-                  ) : projects.map((project) => {
-                    const active = project.id === selectedProjectId;
-                    return (
-                      <button
-                        key={project.id}
-                        type="button"
-                        onClick={() => onSelectProject?.(project.id)}
-                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[var(--bg-hover)]"
-                        style={{
-                          background: active ? 'var(--accent-muted)' : 'transparent',
-                          border: active ? '1px solid var(--accent)' : '1px solid transparent',
-                          color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}
-                        title={project.name}
-                      >
-                        <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" style={{ color: active ? 'var(--accent)' : 'var(--text-tertiary)' }} />
-                        <span className="truncate text-[12px] font-medium">{project.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex gap-1.5">
-                  <input
-                    value={newProjectName}
-                    onChange={(event) => onNewProjectNameChange?.(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') onCreateProject?.();
-                    }}
-                    placeholder={`Dự án ${selectedBrandName}`}
-                    className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[11px] outline-none"
-                    style={{
-                      background: 'var(--bg-primary)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={onCreateProject}
-                    disabled={!newProjectName.trim() || creatingProject}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{ background: 'var(--accent)' }}
-                    title={`Tạo dự án cho ${selectedBrandName}`}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+            <div className="space-y-1.5">
+              <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
+                {projects.length === 0 ? (
+                  <p className="rounded-lg px-2 py-2 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
+                    Chưa có dự án
+                  </p>
+                ) : projects.map((project) => {
+                  const active = project.id === selectedProjectId;
+                  return (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => onSelectProject?.(project.id)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[var(--bg-hover)]"
+                      style={{
+                        background: active ? 'var(--accent-muted)' : 'transparent',
+                        border: active ? '1px solid var(--accent)' : '1px solid transparent',
+                        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      }}
+                      title={project.name}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" style={{ color: active ? 'var(--accent)' : 'var(--text-tertiary)' }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-medium">{project.name}</p>
+                        <p className="truncate text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                          {project.brand?.name || (project.brand_id ? 'Đã có brand' : 'Chưa có brand')}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <p className="rounded-lg px-2 py-2 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
-                Chọn brand để xem dự án
-              </p>
-            )}
+
+              <div className="flex gap-1.5">
+                <input
+                  value={newProjectName}
+                  onChange={(event) => onNewProjectNameChange?.(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') onCreateProject?.();
+                  }}
+                  placeholder="Tên dự án mới"
+                  className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[11px] outline-none"
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={onCreateProject}
+                  disabled={!newProjectName.trim() || creatingProject}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ background: 'var(--accent)' }}
+                  title="Tạo dự án"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

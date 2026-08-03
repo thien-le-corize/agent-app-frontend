@@ -395,7 +395,6 @@ function WorkflowCanvas() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
-  const [autoCreatingBrandProjectId, setAutoCreatingBrandProjectId] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
@@ -451,10 +450,6 @@ function WorkflowCanvas() {
   const defaultWorkflow = useMemo(() => getInitialWorkflow(), []);
   const [nodes, setNodes, onNodesChange] = useNodesState(defaultWorkflow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(defaultWorkflow.edges);
-  const visibleProjects = useMemo(() => {
-    if (!selectedBrand) return projects;
-    return projects.filter((project) => project.brand_id === selectedBrand.id);
-  }, [projects, selectedBrand]);
 
   const loadProjectWorkflow = useCallback((project: Project) => {
     const workflow = normalizeWorkflowDraft(project.workflow);
@@ -523,28 +518,20 @@ function WorkflowCanvas() {
   }), [nodes, edges, scannedPrompt]);
 
   const handleSelectProject = useCallback((projectId: string) => {
-    if (!selectedBrand) {
-      toast.error('Chọn brand trước khi chọn dự án');
-      return;
-    }
     const project = projects.find((item) => item.id === projectId) || null;
-    if (project && project.brand_id !== selectedBrand.id) {
-      toast.error('Dự án này thuộc brand khác');
+    setSelectedProject(project);
+    if (!project) {
+      setSelectedBrand(null);
       return;
     }
-    setSelectedProject(project);
-    if (!project) return;
+    setSelectedBrand(project.brand_id ? brands.find((brand) => brand.id === project.brand_id) || null : null);
     localStorage.setItem('selected_project_id', project.id);
     loadProjectWorkflow(project);
-  }, [projects, selectedBrand, loadProjectWorkflow]);
+  }, [projects, brands, loadProjectWorkflow]);
 
   const handleCreateProject = useCallback(async () => {
     const name = newProjectName.trim();
     if (!name || creatingProject) return;
-    if (!selectedBrand) {
-      toast.error('Chọn brand trước khi tạo dự án');
-      return;
-    }
 
     setCreatingProject(true);
     try {
@@ -558,11 +545,11 @@ function WorkflowCanvas() {
 
       const project = await createProject({
         name,
-        brand_id: selectedBrand.id,
         workflow: initialWorkflow,
       });
       setProjects((prev) => [project, ...prev]);
       setSelectedProject(project);
+      setSelectedBrand(null);
       setNewProjectName('');
       localStorage.setItem('selected_project_id', project.id);
       localStorage.removeItem('workflow_draft');
@@ -574,18 +561,45 @@ function WorkflowCanvas() {
     } finally {
       setCreatingProject(false);
     }
-  }, [newProjectName, creatingProject, loadProjectWorkflow, selectedBrand?.id]);
+  }, [newProjectName, creatingProject, loadProjectWorkflow]);
 
-  const handleSaveProjectWorkflow = useCallback(async () => {
-    if (!selectedBrand) {
-      toast.error('Chọn brand trước khi lưu workflow');
+  const handleSelectBrand = useCallback(async (brand: Brand | null) => {
+    if (!brand) {
+      setSelectedBrand(null);
       return;
     }
+
+    if (!selectedProject) {
+      toast.error('Tạo hoặc chọn dự án trước khi chọn brand');
+      return;
+    }
+
+    if (selectedProject.brand_id && selectedProject.brand_id !== brand.id) {
+      toast.error('Dự án này đã có brand khác, không thể gắn thêm brand');
+      return;
+    }
+
+    if (!selectedProject.brand_id) {
+      try {
+        const updated = await updateProject(selectedProject.id, { brand_id: brand.id });
+        setSelectedProject(updated);
+        setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
+      } catch (error) {
+        console.error('Attach brand to project error:', error);
+        toast.error('Gắn brand vào dự án thất bại');
+        return;
+      }
+    }
+
+    setSelectedBrand(brand);
+  }, [selectedProject]);
+
+  const handleSaveProjectWorkflow = useCallback(async () => {
     if (!selectedProject) {
       toast.error('Chọn dự án trước khi lưu workflow');
       return;
     }
-    if (selectedProject.brand_id && selectedProject.brand_id !== selectedBrand.id) {
+    if (selectedBrand && selectedProject.brand_id && selectedProject.brand_id !== selectedBrand.id) {
       toast.error('Dự án đang chọn thuộc brand khác');
       return;
     }
@@ -594,7 +608,7 @@ function WorkflowCanvas() {
       const workflow = buildCurrentWorkflowPayload();
       const updated = await updateProject(selectedProject.id, {
         workflow,
-        brand_id: selectedBrand.id,
+        ...(selectedBrand ? { brand_id: selectedBrand.id } : {}),
       });
       setSelectedProject(updated);
       setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
@@ -624,64 +638,13 @@ function WorkflowCanvas() {
         const initialProject = p.find((project) => project.id === savedProjectId) || p[0] || null;
         if (initialProject) {
           setSelectedProject(initialProject);
+          setSelectedBrand(initialProject.brand_id ? b.find((brand) => brand.id === initialProject.brand_id) || null : null);
           loadProjectWorkflow(initialProject);
         }
       } catch (err) { console.error(err); }
     }
     fetchData();
   }, [loadProjectWorkflow]);
-
-  useEffect(() => {
-    if (!selectedBrand) return;
-    if (selectedProject?.brand_id === selectedBrand.id) return;
-
-    const matchingProject = projects.find((project) => project.brand_id === selectedBrand.id);
-    if (matchingProject) {
-      setSelectedProject(matchingProject);
-      localStorage.setItem('selected_project_id', matchingProject.id);
-      loadProjectWorkflow(matchingProject);
-      return;
-    }
-
-    if (autoCreatingBrandProjectId === selectedBrand.id) return;
-
-    const brand = selectedBrand;
-    let cancelled = false;
-    setAutoCreatingBrandProjectId(brand.id);
-
-    async function createBrandProject() {
-      try {
-        const project = await createProject({
-          name: `Dự án ${brand.name}`,
-          brand_id: brand.id,
-          workflow: buildCurrentWorkflowPayload(),
-        });
-        if (cancelled) return;
-        setProjects((prev) => [project, ...prev]);
-        setSelectedProject(project);
-        localStorage.setItem('selected_project_id', project.id);
-        loadProjectWorkflow(project);
-        toast.success(`Đã tạo dự án riêng cho ${brand.name}`);
-      } catch (error) {
-        console.error('Create brand project error:', error);
-        toast.error('Tạo dự án theo brand thất bại');
-      } finally {
-        if (!cancelled) setAutoCreatingBrandProjectId(null);
-      }
-    }
-
-    createBrandProject();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    selectedBrand,
-    selectedProject?.brand_id,
-    projects,
-    autoCreatingBrandProjectId,
-    buildCurrentWorkflowPayload,
-    loadProjectWorkflow,
-  ]);
 
   // ═══════════════════════════════════════════════
   // RUN FLOW - Nút chạy chính
@@ -1700,8 +1663,14 @@ function WorkflowCanvas() {
           return { ...node, data: { 
             brands, 
             selectedBrand, 
-            onSelect: setSelectedBrand, 
-            onCreateNew: () => setSidePanel('brand'), 
+            onSelect: handleSelectBrand, 
+            onCreateNew: () => {
+              if (!selectedProject) {
+                toast.error('Tạo hoặc chọn dự án trước khi tạo brand');
+                return;
+              }
+              setSidePanel('brand');
+            }, 
             onEdit: (brand: Brand) => setEditingBrand(brand),
             onAnalyzeBrand: handleAnalyzeBrand,
             analyzingBrand,
@@ -1876,7 +1845,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1899,7 +1868,7 @@ function WorkflowCanvas() {
       {/* Node Palette - Left */}
       <NodePalette
         onOpenWorkflowTemplates={() => setShowTemplates(true)}
-        projects={visibleProjects}
+        projects={projects}
         selectedProjectId={selectedProject?.id || ''}
         selectedBrandName={selectedBrand?.name}
         newProjectName={newProjectName}
@@ -1971,7 +1940,7 @@ function WorkflowCanvas() {
 
         {/* Canvas */}
         <div className="flex-1" ref={reactFlowWrapper}>
-          {selectedBrand && selectedProject ? (
+          {selectedProject ? (
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -2014,12 +1983,10 @@ function WorkflowCanvas() {
               <div className="w-[420px] rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <FolderOpen className="h-5 w-5 text-[var(--accent)]" />
-                  <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">{selectedBrand ? 'Tạo dự án trước' : 'Chọn brand trước'}</h2>
+                  <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">Tạo dự án trước</h2>
                 </div>
                 <p className="mb-4 text-[13px] leading-relaxed text-[var(--text-secondary)]">
-                  {selectedBrand
-                    ? `Workflow của ${selectedBrand.name} chỉ dùng dự án thuộc brand này. Tạo hoặc chọn dự án để bắt đầu.`
-                    : 'Mỗi dự án chỉ thuộc một brand. Chọn brand ở node Thương hiệu trước, rồi hệ thống sẽ tạo/chọn dự án riêng cho brand đó.'}
+                  Tạo hoặc chọn dự án ở menu bên trái trước, sau đó chọn/tạo brand trong node Thương hiệu. Mỗi dự án chỉ gắn một brand.
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -2033,7 +2000,7 @@ function WorkflowCanvas() {
                   />
                   <button
                     onClick={handleCreateProject}
-                    disabled={!selectedBrand || !newProjectName.trim() || creatingProject}
+                    disabled={!newProjectName.trim() || creatingProject}
                     className="rounded-md bg-[var(--accent)] px-3 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Tạo
@@ -2189,7 +2156,11 @@ function WorkflowCanvas() {
         <SidePanel
           type={sidePanel}
           onClose={() => setSidePanel(null)}
-          onBrandCreated={(brand) => { setBrands(prev => [...prev, brand]); setSelectedBrand(brand); setSidePanel(null); }}
+          onBrandCreated={async (brand) => {
+            setBrands(prev => [...prev, brand]);
+            await handleSelectBrand(brand);
+            setSidePanel(null);
+          }}
           onTemplateCreated={(tpl) => { setTemplates(prev => [...prev, tpl]); setSelectedTemplate(tpl); setSidePanel(null); }}
         />
       )}
