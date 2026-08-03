@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from 'reactflow';
-import { Palette, Check, Pencil, Wand2 } from 'lucide-react';
+import { Palette, Check, Pencil, Plus, Wand2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface BrandNodeProps {
@@ -9,6 +9,7 @@ interface BrandNodeProps {
     brands?: any[];
     selectedBrand?: any;
     onSelect?: (brand: any) => void;
+    onCreateNew?: () => void;
     onEdit?: (brand: any) => void;
     onAnalyzeBrand?: () => void | Promise<void>;
     analyzingBrand?: boolean;
@@ -17,7 +18,7 @@ interface BrandNodeProps {
 }
 
 function BrandNode({ data }: BrandNodeProps) {
-  const { selectedBrand, onSelect, onEdit, onAnalyzeBrand, analyzingBrand, onDelete } = data;
+  const { selectedBrand, onSelect, onCreateNew, onEdit, onAnalyzeBrand, analyzingBrand, onDelete } = data;
 
   return (
     <NodeWrapper onDelete={onDelete}>
@@ -84,6 +85,15 @@ function BrandNode({ data }: BrandNodeProps) {
               <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
                 Tạo brand mới để tự động active cho dự án này
               </p>
+              <button
+                type="button"
+                onClick={() => onCreateNew?.()}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-medium text-violet-200 transition hover:bg-violet-500/15"
+                style={{ border: '1px solid rgba(168,85,247,0.28)', background: 'rgba(168,85,247,0.08)' }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Tạo brand mới
+              </button>
             </div>
           )}
         </div>
