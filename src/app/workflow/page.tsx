@@ -24,7 +24,7 @@ import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowT
 import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
-import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Plus, Save } from 'lucide-react';
+import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SidePanel from '@/components/SidePanel';
 
@@ -1897,7 +1897,17 @@ function WorkflowCanvas() {
   return (
     <div className="h-screen w-screen relative flex">
       {/* Node Palette - Left */}
-      <NodePalette onOpenWorkflowTemplates={() => setShowTemplates(true)} />
+      <NodePalette
+        onOpenWorkflowTemplates={() => setShowTemplates(true)}
+        projects={visibleProjects}
+        selectedProjectId={selectedProject?.id || ''}
+        selectedBrandName={selectedBrand?.name}
+        newProjectName={newProjectName}
+        creatingProject={creatingProject}
+        onSelectProject={handleSelectProject}
+        onNewProjectNameChange={setNewProjectName}
+        onCreateProject={handleCreateProject}
+      />
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col">
@@ -1912,37 +1922,13 @@ function WorkflowCanvas() {
                 <p className="text-[13px] font-semibold text-[var(--text-primary)]">Workflow</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5">
-              <FolderOpen className="h-3.5 w-3.5 text-[var(--accent)]" />
-              <select
-                value={selectedProject?.id || ''}
-                onChange={(event) => handleSelectProject(event.target.value)}
-                disabled={!selectedBrand}
-                className="project-select min-w-[170px] rounded-md border border-transparent px-1 py-1 text-[12px] font-medium outline-none"
-              >
-                <option value="">{selectedBrand ? 'Chọn dự án' : 'Chọn brand trước'}</option>
-                {visibleProjects.map((project) => (
-                  <option key={project.id} value={project.id}>{project.name}</option>
-                ))}
-              </select>
-              <input
-                value={newProjectName}
-                onChange={(event) => setNewProjectName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleCreateProject();
-                }}
-                placeholder={selectedBrand ? `Dự án ${selectedBrand.name}` : 'Tên dự án mới'}
-                className="w-32 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[12px] text-[var(--text-primary)] outline-none"
-              />
-              <button
-                onClick={handleCreateProject}
-                disabled={!selectedBrand || !newProjectName.trim() || creatingProject}
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-white disabled:cursor-not-allowed disabled:opacity-50"
-                title={selectedBrand ? `Tạo dự án cho ${selectedBrand.name}` : 'Tạo dự án'}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            {selectedProject && (
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
+                <p className="max-w-[240px] truncate text-[12px] font-medium text-[var(--text-primary)]">
+                  {selectedProject.name}
+                </p>
+              </div>
+            )}
             <div className="flex items-center gap-1 ml-2">
               <button
                 onClick={() => { if (confirm('Tạo workflow mặc định mới?')) resetToDefaultWorkflow(); }}

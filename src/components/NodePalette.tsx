@@ -1,6 +1,7 @@
 'use client';
 
 import { DragEvent } from 'react';
+import type { Project } from '@/types';
 import {
   Palette,
   FileText,
@@ -14,6 +15,8 @@ import {
   ChevronDown,
   ImagePlus,
   LayoutTemplate,
+  FolderOpen,
+  Plus,
 } from 'lucide-react';
 
 export interface NodeTypeInfo {
@@ -55,9 +58,27 @@ const iconBgMap: Record<string, string> = {
 
 interface NodePaletteProps {
   onOpenWorkflowTemplates?: () => void;
+  projects?: Project[];
+  selectedProjectId?: string;
+  selectedBrandName?: string;
+  newProjectName?: string;
+  creatingProject?: boolean;
+  onSelectProject?: (projectId: string) => void;
+  onNewProjectNameChange?: (name: string) => void;
+  onCreateProject?: () => void;
 }
 
-export default function NodePalette({ onOpenWorkflowTemplates }: NodePaletteProps) {
+export default function NodePalette({
+  onOpenWorkflowTemplates,
+  projects = [],
+  selectedProjectId = '',
+  selectedBrandName,
+  newProjectName = '',
+  creatingProject = false,
+  onSelectProject,
+  onNewProjectNameChange,
+  onCreateProject,
+}: NodePaletteProps) {
   const onDragStart = (event: DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
@@ -104,7 +125,7 @@ export default function NodePalette({ onOpenWorkflowTemplates }: NodePaletteProp
       </div>
 
       {onOpenWorkflowTemplates && (
-        <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+        <div className="space-y-3 px-3 py-3" style={{ borderBottom: '1px solid var(--panel-border)' }}>
           <button
             type="button"
             onClick={onOpenWorkflowTemplates}
@@ -117,6 +138,80 @@ export default function NodePalette({ onOpenWorkflowTemplates }: NodePaletteProp
               <p className="text-[10px] leading-tight text-white/75">Mở mẫu workflow nhanh</p>
             </div>
           </button>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+                <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  Dự án
+                </p>
+              </div>
+              <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{projects.length}</span>
+            </div>
+
+            {selectedBrandName ? (
+              <div className="space-y-1.5">
+                <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
+                  {projects.length === 0 ? (
+                    <p className="rounded-lg px-2 py-2 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
+                      Chưa có dự án cho brand này
+                    </p>
+                  ) : projects.map((project) => {
+                    const active = project.id === selectedProjectId;
+                    return (
+                      <button
+                        key={project.id}
+                        type="button"
+                        onClick={() => onSelectProject?.(project.id)}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-[var(--bg-hover)]"
+                        style={{
+                          background: active ? 'var(--accent-muted)' : 'transparent',
+                          border: active ? '1px solid var(--accent)' : '1px solid transparent',
+                          color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
+                        title={project.name}
+                      >
+                        <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" style={{ color: active ? 'var(--accent)' : 'var(--text-tertiary)' }} />
+                        <span className="truncate text-[12px] font-medium">{project.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex gap-1.5">
+                  <input
+                    value={newProjectName}
+                    onChange={(event) => onNewProjectNameChange?.(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') onCreateProject?.();
+                    }}
+                    placeholder={`Dự án ${selectedBrandName}`}
+                    className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[11px] outline-none"
+                    style={{
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={onCreateProject}
+                    disabled={!newProjectName.trim() || creatingProject}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: 'var(--accent)' }}
+                    title={`Tạo dự án cho ${selectedBrandName}`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-lg px-2 py-2 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
+                Chọn brand để xem dự án
+              </p>
+            )}
+          </div>
         </div>
       )}
 
