@@ -21,10 +21,10 @@ import 'reactflow/dist/style.css';
 import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
-import { Brand, Template, ImageGeneration, VideoGeneration } from '@/types';
-import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate } from 'lucide-react';
+import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
+import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate, FolderOpen, Plus, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SidePanel from '@/components/SidePanel';
 
@@ -132,7 +132,34 @@ ${texts || '- Thay toàn bộ text cũ bằng nội dung mới từ prompt ngư�
 [Style]
 ${style || '- Quảng cáo chuyên nghiệp, sạch, phù hợp nha khoa.'}
 
-Yêu cầu bắt buộc: thay toàn bộ text cũ bằng các text mới ở trên, giữ hierarchy/vị trí tương ứng, output chuyên nghiệp, trang phục kín đáo, non-sexual.`;
+Yêu cầu bắt buộc: thay toàn bộ text cũ bằng các text mới ở trên, giữ hierarchy/vị trí tương ứng, output chuyên nghiệp, trang phục kín đáo, non-sexual.
+Ngôn ngữ bắt buộc: mọi chữ hiển thị trong ảnh cuối phải là tiếng Việt có dấu, tự nhiên, đúng chính tả. Không dùng tiếng Anh trong headline, CTA, badge, footer, ưu đãi, địa chỉ, caption hoặc bất kỳ text overlay nào.`;
+}
+
+function composePrompt(scannedPrompt: string, extraPrompt: string) {
+  const scanned = scannedPrompt.trim();
+  const extra = extraPrompt.trim();
+
+  if (!scanned) return extra;
+  if (!extra) return scanned;
+
+  return `${scanned}
+
+[Prompt thêm của người dùng]
+${extra}`;
+}
+
+function normalizeWorkflowDraft(workflow: any) {
+  const fallback = getInitialWorkflow();
+  if (!workflow || !Array.isArray(workflow.nodes) || workflow.nodes.length === 0) {
+    return { ...fallback, scannedPrompt: '' };
+  }
+
+  return {
+    nodes: workflow.nodes,
+    edges: Array.isArray(workflow.edges) ? workflow.edges : [],
+    scannedPrompt: typeof workflow.scannedPrompt === 'string' ? workflow.scannedPrompt : '',
+  };
 }
 
 function removeGeneratedBrandAnalysis(description?: string | null) {
@@ -364,6 +391,10 @@ function WorkflowCanvas() {
   // Data
   const [brands, setBrands] = useState<Brand[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [creatingProject, setCreatingProject] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
@@ -374,6 +405,7 @@ function WorkflowCanvas() {
   const [inputNodeFiles, setInputNodeFiles] = useState<Record<string, File[]>>({});
   const [inputNodeLibraryUrls, setInputNodeLibraryUrls] = useState<Record<string, string[]>>({});
   const [prompt, setPrompt] = useState('');
+  const [scannedPrompt, setScannedPrompt] = useState('');
   const [analyzingReferencePrompt, setAnalyzingReferencePrompt] = useState(false);
   const [analyzingBrand, setAnalyzingBrand] = useState(false);
   const [sidePanel, setSidePanel] = useState<'brand' | 'template' | null>(null);
@@ -419,30 +451,15 @@ function WorkflowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(defaultWorkflow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(defaultWorkflow.edges);
 
-  // Load saved workflow
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('workflow_draft');
-      if (saved) {
-        const { nodes: savedNodes, edges: savedEdges } = JSON.parse(saved);
-        if (savedNodes?.length > 0) {
-          const hasOldDefaultInputSplit =
-            savedNodes.some((node: Node) => node.id === 'product-1') &&
-            savedNodes.some((node: Node) => node.id === 'element-1') &&
-            savedNodes.some((node: Node) => node.id === 'model-1');
-          if (hasOldDefaultInputSplit) {
-            const workflow = getInitialWorkflow();
-            setNodes(workflow.nodes);
-            setEdges(workflow.edges);
-            localStorage.setItem('workflow_draft', JSON.stringify({ ...workflow, savedAt: new Date().toISOString() }));
-            return;
-          }
-          setNodes(savedNodes);
-          setEdges(savedEdges || []);
-        }
-      }
-    } catch {}
-  }, []);
+  const loadProjectWorkflow = useCallback((project: Project) => {
+    const workflow = normalizeWorkflowDraft(project.workflow);
+    setNodes(workflow.nodes);
+    setEdges(workflow.edges);
+    setScannedPrompt(workflow.scannedPrompt);
+    setPrompt('');
+    setResults([]);
+    setVideoResult(null);
+  }, [setNodes, setEdges]);
 
   // Validate connection
   const isValidConnection = useCallback((connection: Connection) => {
@@ -481,6 +498,7 @@ function WorkflowCanvas() {
     setInputNodeFiles({});
     setInputNodeLibraryUrls({});
     setPrompt('');
+    setScannedPrompt('');
     setResults([]);
     setVideoResult(null);
     setVideoOptions({});
@@ -492,6 +510,72 @@ function WorkflowCanvas() {
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
 
+  const buildCurrentWorkflowPayload = useCallback(() => ({
+    nodes,
+    edges,
+    scannedPrompt,
+    savedAt: new Date().toISOString(),
+  }), [nodes, edges, scannedPrompt]);
+
+  const handleSelectProject = useCallback((projectId: string) => {
+    const project = projects.find((item) => item.id === projectId) || null;
+    setSelectedProject(project);
+    if (!project) return;
+    localStorage.setItem('selected_project_id', project.id);
+    loadProjectWorkflow(project);
+  }, [projects, loadProjectWorkflow]);
+
+  const handleCreateProject = useCallback(async () => {
+    const name = newProjectName.trim();
+    if (!name || creatingProject) return;
+
+    setCreatingProject(true);
+    try {
+      let initialWorkflow: Record<string, any> = { ...getInitialWorkflow(), scannedPrompt: '' };
+      const legacyDraft = localStorage.getItem('workflow_draft');
+      if (legacyDraft) {
+        try {
+          initialWorkflow = normalizeWorkflowDraft(JSON.parse(legacyDraft));
+        } catch {}
+      }
+
+      const project = await createProject({
+        name,
+        workflow: initialWorkflow,
+      });
+      setProjects((prev) => [project, ...prev]);
+      setSelectedProject(project);
+      setNewProjectName('');
+      localStorage.setItem('selected_project_id', project.id);
+      localStorage.removeItem('workflow_draft');
+      loadProjectWorkflow(project);
+      toast.success('Đã tạo dự án');
+    } catch (error) {
+      console.error('Create project error:', error);
+      toast.error('Tạo dự án thất bại');
+    } finally {
+      setCreatingProject(false);
+    }
+  }, [newProjectName, creatingProject, loadProjectWorkflow]);
+
+  const handleSaveProjectWorkflow = useCallback(async () => {
+    if (!selectedProject) {
+      toast.error('Chọn dự án trước khi lưu workflow');
+      return;
+    }
+
+    try {
+      const workflow = buildCurrentWorkflowPayload();
+      const updated = await updateProject(selectedProject.id, { workflow });
+      setSelectedProject(updated);
+      setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
+      toast.success('Đã lưu workflow vào dự án');
+    } catch (error) {
+      console.error('Save project workflow error:', error);
+      toast.error('Lưu workflow thất bại');
+    }
+  }, [selectedProject, buildCurrentWorkflowPayload]);
+
   const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
@@ -502,13 +586,21 @@ function WorkflowCanvas() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [b, t] = await Promise.all([getBrands(), getTemplates()]);
+        const [b, t, p] = await Promise.all([getBrands(), getTemplates(), getProjects()]);
         setBrands(b);
         setTemplates(t);
+        setProjects(p);
+
+        const savedProjectId = localStorage.getItem('selected_project_id');
+        const initialProject = p.find((project) => project.id === savedProjectId) || p[0] || null;
+        if (initialProject) {
+          setSelectedProject(initialProject);
+          loadProjectWorkflow(initialProject);
+        }
       } catch (err) { console.error(err); }
     }
     fetchData();
-  }, []);
+  }, [loadProjectWorkflow]);
 
   // ═══════════════════════════════════════════════
   // RUN FLOW - Nút chạy chính
@@ -517,10 +609,14 @@ function WorkflowCanvas() {
   // ═══════════════════════════════════════════════
   const promptRef = useRef(prompt);
   promptRef.current = prompt;
+  const scannedPromptRef = useRef(scannedPrompt);
+  scannedPromptRef.current = scannedPrompt;
   const selectedBrandRef = useRef(selectedBrand);
   selectedBrandRef.current = selectedBrand;
   const selectedTemplateRef = useRef(selectedTemplate);
   selectedTemplateRef.current = selectedTemplate;
+  const selectedProjectRef = useRef(selectedProject);
+  selectedProjectRef.current = selectedProject;
   const referenceFilesRef = useRef(referenceFiles);
   referenceFilesRef.current = referenceFiles;
   const referenceLibraryUrlsRef = useRef(referenceLibraryUrls);
@@ -544,11 +640,19 @@ function WorkflowCanvas() {
   const videoOptionsRef = useRef(videoOptions);
   videoOptionsRef.current = videoOptions;
 
-  const canRun = prompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
+  const canRun = prompt.trim().length > 0 || scannedPrompt.trim().length > 0 || nodes.some((n) => n.type === 'aiprompt');
 
   const handleRunFlow = useCallback(async (count?: number) => {
+    const currentProject = selectedProjectRef.current;
+    if (!currentProject) {
+      toast.error('Tạo hoặc chọn dự án trước khi chạy workflow');
+      return;
+    }
+
     const currentBrand = selectedBrandRef.current;
     const currentPrompt = promptRef.current;
+    const currentScannedPrompt = scannedPromptRef.current;
+    const currentComposedPrompt = composePrompt(currentScannedPrompt, currentPrompt);
     const currentTemplate = selectedTemplateRef.current;
     const currentFiles = referenceFilesRef.current;
     const currentImageFiles = imageNodeFilesRef.current;
@@ -565,8 +669,8 @@ function WorkflowCanvas() {
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
     const hasPromptNodeWithText = nodes.some((n) => n.type === 'prompt' && (n.data as any)?.prompt?.trim());
-    if (!currentPrompt.trim() && !hasAIPromptNode && !hasPromptNodeWithText) { 
-      toast.error('Nhập prompt trong Prompt Builder node'); 
+    if (!currentComposedPrompt.trim() && !hasAIPromptNode && !hasPromptNodeWithText) { 
+      toast.error('Nhập prompt thêm hoặc quét prompt từ ảnh tham khảo'); 
       return; 
     }
 
@@ -617,7 +721,7 @@ function WorkflowCanvas() {
         const allInputNodes = getUpstreamNodes(execNode.id, edges, nodes);
 
         // Collect data từ input nodes
-        let nodePrompt = currentPrompt;
+        let nodePrompt = currentComposedPrompt;
         let refImages: string[] = [];
         let inputImages: string[] = [];
         let styleReferenceImages: string[] = [];
@@ -627,14 +731,15 @@ function WorkflowCanvas() {
           if (inp.type === 'prompt') {
             // Lấy prompt từ PromptNode data
             const promptNodeData = inp.data as any;
+            const promptExtra = promptNodeData?.prompt?.trim() || '';
             if (promptNodeData?.prompt && promptNodeData.prompt.trim()) {
-              nodePrompt = promptNodeData.prompt;
+              nodePrompt = composePrompt(currentScannedPrompt, promptExtra);
             }
             // Cũng check xem có aiprompt nối vào nó không
             const promptInputEdges = edges.filter((e) => e.target === inp.id);
             for (const pe of promptInputEdges) {
               if (nodeResults[pe.source]) {
-                nodePrompt = nodeResults[pe.source];
+                nodePrompt = composePrompt(nodeResults[pe.source], promptExtra);
                 break;
               }
             }
@@ -714,7 +819,7 @@ function WorkflowCanvas() {
           const nodeSecondaryColor = nodeData.secondaryColor || currentBrand?.secondary_color || '';
           const nodeFontStyle = nodeData.fontStyle || '';
           const nodeMood = nodeData.mood || '';
-          const nodeDescription = nodeData.description || currentPrompt || 'Professional marketing banner';
+          const nodeDescription = nodeData.description || currentPrompt || 'Banner quảng cáo chuyên nghiệp';
           const nodeRefFiles: File[] = nodeData._refFiles || [];
           const nodeLogoFile: File | null = nodeData._logoFile || null;
 
@@ -743,7 +848,7 @@ function WorkflowCanvas() {
               secondary_color: nodeSecondaryColor || undefined,
               font_style: nodeFontStyle || undefined,
               mood: nodeMood || undefined,
-              description: nodeDescription,
+              description: `${nodeDescription}\n\nBắt buộc mọi chữ xuất hiện trong ảnh là tiếng Việt có dấu, không dùng tiếng Anh.`,
               reference_image_urls: refImageUrls.length > 0 ? refImageUrls : undefined,
             });
             nodeResults[execNode.id] = generatedPrompt;
@@ -772,7 +877,7 @@ function WorkflowCanvas() {
 
           toast('Đang tạo storybook theo từng ảnh...', { icon: '🎬' });
           const { storyboard } = await generateVideoStoryboard({
-            script: nodePrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
+              script: nodePrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
             image_urls: storyboardImageUrls.length > 0 ? storyboardImageUrls : undefined,
           });
 
@@ -783,14 +888,14 @@ function WorkflowCanvas() {
           setNodes((nds) => nds.map((n) => n.id === execNode.id ? { ...n, data: { ...n.data, storyboard, imageUrls: storyboardImageUrls, status: 'done', generating: false } } : n));
           toast.success('✅ Storybook xong');
         } else if (execNode.type === 'storyboardImage') {
-          let script = nodeResults.__video_script || currentPrompt;
+          let script = nodeResults.__video_script || currentComposedPrompt;
           const totalFrames = Math.max(storyboardImageNodes.length, 1);
           const batchNodes = storyboardImageNodes.filter((node) => !processedStoryboardImageNodes.has(node.id));
 
           if (!nodeResults.__video_script) {
             toast('Đang tự viết kịch bản video...', { icon: '🎬' });
             const { storyboard } = await generateVideoStoryboard({
-              script: nodePrompt || currentPrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
+              script: nodePrompt || currentComposedPrompt || 'Tạo video quảng cáo nha khoa chuyên nghiệp từ ảnh đầu vào.',
               image_urls: refImages.length > 0 ? refImages.slice(0, 3) : undefined,
             });
             script = storyboard;
@@ -812,6 +917,7 @@ function WorkflowCanvas() {
               : storyboardImageNodes.findIndex((candidate) => candidate.id === node.id);
             const referencePrompt = buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames);
             const res = await generateImage({
+              project_id: currentProject.id,
               ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
               user_input: referencePrompt,
               reference_images: refImages.length > 0 ? refImages.slice(0, 3) : undefined,
@@ -882,12 +988,14 @@ function WorkflowCanvas() {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
           }
           enhancedPrompt += `\n\n[Professional safety: Always output a polished, non-sexual, family-safe professional advertisement. Use modest clothing, clean healthcare/commercial lighting, and brand-safe dental marketing aesthetics. Do not preserve provocative wardrobe, seductive pose, body-emphasis, bedroom/mirror-selfie intimacy, erotic mood, or suggestive framing from any input image.]`;
+          enhancedPrompt += `\n\n[Ngôn ngữ bắt buộc: Mọi chữ hiển thị trong ảnh cuối phải là tiếng Việt có dấu, tự nhiên, đúng chính tả. Không dùng tiếng Anh trong headline, CTA, badge, footer, ưu đãi, địa chỉ, caption hoặc bất kỳ text overlay nào. Nếu prompt hoặc ảnh tham khảo có chữ tiếng Anh, hãy chuyển nghĩa sang tiếng Việt trước khi đưa vào ảnh.]`;
           enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
 
           console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
           console.log(`[Flow] Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
 
           const res = await generateImage({
+            project_id: currentProject.id,
             ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
             user_input: enhancedPrompt,
             reference_images: allRefImages.length > 0 ? allRefImages : undefined,
@@ -951,6 +1059,7 @@ function WorkflowCanvas() {
             videoStyle: 'tvc' as const,
           };
           const videoRes = await generateVideo({
+            project_id: currentProject.id,
             prompt: nodePrompt || 'Create a smooth animated video from these images',
             input_image_urls: omniImageUrls.length > 0 ? omniImageUrls : undefined,
             aspect_ratio: nodeVideoOptions.aspectRatio,
@@ -991,11 +1100,18 @@ function WorkflowCanvas() {
   // EDIT / REGENERATE - Sửa hình không đúng ý
   // ═══════════════════════════════════════════════
   const handleRegenerate = useCallback(async (index: number, newPrompt?: string) => {
+    const currentProject = selectedProjectRef.current;
     const currentBrand = selectedBrandRef.current;
     const currentFiles = referenceFilesRef.current;
     const currentImageFiles = imageNodeFilesRef.current;
     const currentPrompt = promptRef.current;
+    const currentScannedPrompt = scannedPromptRef.current;
+    const currentComposedPrompt = composePrompt(currentScannedPrompt, currentPrompt);
 
+    if (!currentProject) {
+      toast.error('Chọn dự án trước khi tạo lại hình');
+      return;
+    }
     if (!currentBrand) return;
 
     const updatedResults = [...results];
@@ -1018,8 +1134,9 @@ function WorkflowCanvas() {
       const allRefs = [...imageUrls, ...refUrls];
 
       const res = await generateImage({
+        project_id: currentProject.id,
         brand_id: currentBrand.id,
-        user_input: newPrompt || editPrompt || currentPrompt,
+        user_input: newPrompt || editPrompt || currentComposedPrompt,
         reference_images: allRefs.length > 0 ? allRefs : undefined,
       });
 
@@ -1045,6 +1162,12 @@ function WorkflowCanvas() {
     voiceStyle?: string;
     videoStyle?: 'tvc' | 'intro';
   }, videoNodeId?: string) => {
+    const currentProject = selectedProjectRef.current;
+    if (!currentProject) {
+      toast.error('Tạo hoặc chọn dự án trước khi tạo video');
+      return;
+    }
+
     let nextPrompt = override?.prompt?.trim() || videoPrompt.trim();
     const videoImageUrls: string[] = [];
 
@@ -1116,6 +1239,7 @@ function WorkflowCanvas() {
     }
     try {
       const res = await generateVideo({
+        project_id: currentProject.id,
         prompt: nextPrompt || prompt,
         input_image_urls: omniImageUrls.length > 0 ? omniImageUrls : undefined,
         aspect_ratio: override?.aspectRatio || '16:9',
@@ -1190,7 +1314,7 @@ function WorkflowCanvas() {
         mode: 'replace_subject',
       });
       setReferenceAnalysis(analysis);
-      setPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
+      setScannedPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
       toast.success('Đã tách bố cục, màu sắc và text từ ảnh tham khảo');
     } catch (err) {
       console.error('Analyze reference prompt error:', err);
@@ -1202,7 +1326,7 @@ function WorkflowCanvas() {
 
   const handleReferenceAnalysisChange = useCallback((analysis: ReferenceStructureAnalysis) => {
     setReferenceAnalysis(analysis);
-    setPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
+    setScannedPrompt(buildPromptFromReferenceAnalysis(analysis, selectedBrand));
   }, [selectedBrand]);
 
   const handleAnalyzeBrand = useCallback(async () => {
@@ -1293,10 +1417,10 @@ function WorkflowCanvas() {
   const regenerateStoryboardNode = useCallback(async (storyboardNodeId: string, scriptOverride?: string) => {
     const upstreamNodes = getUpstreamNodes(storyboardNodeId, edges, nodes);
     const upstreamPromptNode = upstreamNodes.find((node) => node.type === 'prompt');
+    const promptExtra = (upstreamPromptNode?.data as any)?.prompt?.trim() || '';
     const script =
       scriptOverride?.trim() ||
-      (upstreamPromptNode?.data as any)?.prompt?.trim() ||
-      prompt.trim();
+      composePrompt(scannedPrompt, promptExtra || prompt);
 
     if (!script) {
       toast.error('Nối Prompt hoặc nhập ý tưởng trước');
@@ -1330,9 +1454,14 @@ function WorkflowCanvas() {
       ));
       toast.error('Tạo lại Storybook thất bại');
     }
-  }, [edges, nodes, prompt, setNodes, collectImageUrlsForNode]);
+  }, [edges, nodes, prompt, scannedPrompt, setNodes, collectImageUrlsForNode]);
 
   const regenerateStoryboardImageNode = useCallback(async (storyboardImageNodeId: string) => {
+    if (!selectedProject) {
+      toast.error('Chọn dự án trước khi tạo lại ảnh tham chiếu');
+      return;
+    }
+
     const storyboardImageNode = nodes.find((node) => node.id === storyboardImageNodeId);
     if (!storyboardImageNode) return;
 
@@ -1353,6 +1482,7 @@ function WorkflowCanvas() {
     try {
       const imageUrls = await collectImageUrlsForNode(storyboardImageNodeId);
       const res = await generateImage({
+        project_id: selectedProject.id,
         ...(selectedBrand?.id ? { brand_id: selectedBrand.id } : {}),
         user_input: promptText,
         reference_images: imageUrls.length > 0 ? imageUrls.slice(0, 3) : undefined,
@@ -1377,7 +1507,7 @@ function WorkflowCanvas() {
       ));
       toast.error('Tạo lại ảnh tham chiếu thất bại');
     }
-  }, [nodes, prompt, selectedBrand?.id, setNodes, collectImageUrlsForNode]);
+  }, [nodes, prompt, selectedBrand?.id, selectedProject, setNodes, collectImageUrlsForNode]);
 
   const handleCreateStoryboardFromPrompt = useCallback(async (promptNodeId: string, script: string) => {
     const cleanScript = script.trim();
@@ -1421,7 +1551,7 @@ function WorkflowCanvas() {
 
   useEffect(() => {
     if (!referenceAnalysis) return;
-    setPrompt(buildPromptFromReferenceAnalysis(referenceAnalysis, selectedBrand));
+    setScannedPrompt(buildPromptFromReferenceAnalysis(referenceAnalysis, selectedBrand));
   }, [
     referenceAnalysis,
     selectedBrand?.id,
@@ -1529,6 +1659,7 @@ function WorkflowCanvas() {
           });
           return { ...node, data: {
             prompt,
+            scannedPromptAvailable: scannedPrompt.trim().length > 0,
             creatingStoryboard: Boolean(creatingStoryboardFromPrompt[node.id]),
             onChange: setPrompt,
             onCreateStoryboard: hasStoryboardTarget
@@ -1578,7 +1709,7 @@ function WorkflowCanvas() {
             results: (node.data as any)?.results || [],
             onGenerate: (n: number) => handleRunFlowRef.current(n),
             onRegenerate: (_i: number, _p?: string) => handleRunFlowRef.current(1),
-            canGenerate: !!selectedBrand && prompt.trim().length > 0,
+            canGenerate: !!selectedBrand && (prompt.trim().length > 0 || scannedPrompt.trim().length > 0),
             onDelete: deleteHandler
           } };
         }
@@ -1632,7 +1763,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1668,6 +1799,36 @@ function WorkflowCanvas() {
                 <p className="text-[13px] font-semibold text-[var(--text-primary)]">Workflow</p>
               </div>
             </div>
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5">
+              <FolderOpen className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <select
+                value={selectedProject?.id || ''}
+                onChange={(event) => handleSelectProject(event.target.value)}
+                className="min-w-[170px] bg-transparent text-[12px] font-medium text-[var(--text-primary)] outline-none"
+              >
+                <option value="">Chọn dự án</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.name}</option>
+                ))}
+              </select>
+              <input
+                value={newProjectName}
+                onChange={(event) => setNewProjectName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleCreateProject();
+                }}
+                placeholder="Tên dự án mới"
+                className="w-32 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[12px] text-[var(--text-primary)] outline-none"
+              />
+              <button
+                onClick={handleCreateProject}
+                disabled={!newProjectName.trim() || creatingProject}
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-white disabled:cursor-not-allowed disabled:opacity-50"
+                title="Tạo dự án"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <div className="flex items-center gap-1 ml-2">
               <button
                 onClick={() => setShowTemplates(true)}
@@ -1683,13 +1844,11 @@ function WorkflowCanvas() {
                 New
               </button>
               <button
-                onClick={() => {
-                  const workflow = { nodes, edges, savedAt: new Date().toISOString() };
-                  localStorage.setItem('workflow_draft', JSON.stringify(workflow));
-                  toast.success('Saved');
-                }}
-                className="px-2.5 py-1.5 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition"
+                onClick={handleSaveProjectWorkflow}
+                disabled={!selectedProject}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50"
               >
+                <Save className="h-3.5 w-3.5" />
                 Save
               </button>
             </div>
@@ -1699,11 +1858,13 @@ function WorkflowCanvas() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleRunFlow()}
-              disabled={generating}
+              disabled={generating || !selectedProject}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
-                !generating
+                !generating && selectedProject
                   ? 'bg-[var(--accent)] text-white hover:opacity-90'
-                  : 'bg-[var(--accent-yellow)] text-black cursor-wait'
+                  : generating
+                    ? 'bg-[var(--accent-yellow)] text-black cursor-wait'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               {generating ? (
@@ -1717,43 +1878,75 @@ function WorkflowCanvas() {
 
         {/* Canvas */}
         <div className="flex-1" ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onNodeContextMenu={onNodeContextMenu}
-            onPaneClick={onPaneClick}
-            isValidConnection={isValidConnection}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.3}
-            maxZoom={2}
-            defaultEdgeOptions={{ animated: true, style: { strokeWidth: 2 } }}
-            deleteKeyCode={['Backspace', 'Delete']}
-            edgesFocusable={true}
-            edgesUpdatable={true}
-            selectNodesOnDrag={false}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#cbd5e1" />
-            <Controls showInteractive={false} />
-            <MiniMap
-              nodeColor={(node) => {
-                const colors: Record<string, string> = {
-                  brand: '#8b5cf6', template: '#3b82f6', references: '#f59e0b',
-                  image: '#06b6d4', prompt: '#10b981', generate: '#6366f1',
-                  video: '#e11d48', text: '#6b7280', storyboard: '#38bdf8',
-                  storyboardImage: '#60a5fa',
-                };
-                return colors[node.type || ''] || '#64748b';
-              }}
-              maskColor="rgba(248,250,252,0.7)"
-            />
-          </ReactFlow>
+          {selectedProject ? (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onNodeContextMenu={onNodeContextMenu}
+              onPaneClick={onPaneClick}
+              isValidConnection={isValidConnection}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              minZoom={0.3}
+              maxZoom={2}
+              defaultEdgeOptions={{ animated: true, style: { strokeWidth: 2 } }}
+              deleteKeyCode={['Backspace', 'Delete']}
+              edgesFocusable={true}
+              edgesUpdatable={true}
+              selectNodesOnDrag={false}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#cbd5e1" />
+              <Controls showInteractive={false} />
+              <MiniMap
+                nodeColor={(node) => {
+                  const colors: Record<string, string> = {
+                    brand: '#8b5cf6', template: '#3b82f6', references: '#f59e0b',
+                    image: '#06b6d4', prompt: '#10b981', generate: '#6366f1',
+                    video: '#e11d48', text: '#6b7280', storyboard: '#38bdf8',
+                    storyboardImage: '#60a5fa',
+                  };
+                  return colors[node.type || ''] || '#64748b';
+                }}
+                maskColor="rgba(248,250,252,0.7)"
+              />
+            </ReactFlow>
+          ) : (
+            <div className="flex h-full items-center justify-center bg-[var(--bg-primary)]">
+              <div className="w-[420px] rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <FolderOpen className="h-5 w-5 text-[var(--accent)]" />
+                  <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">Tạo dự án trước</h2>
+                </div>
+                <p className="mb-4 text-[13px] leading-relaxed text-[var(--text-secondary)]">
+                  Workflow tạo ảnh và tạo video sẽ được lưu riêng theo từng dự án. Tạo hoặc chọn dự án ở thanh trên để bắt đầu.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={newProjectName}
+                    onChange={(event) => setNewProjectName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') handleCreateProject();
+                    }}
+                    placeholder="VD: Campaign niềng răng tháng 8"
+                    className="flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none"
+                  />
+                  <button
+                    onClick={handleCreateProject}
+                    disabled={!newProjectName.trim() || creatingProject}
+                    className="rounded-md bg-[var(--accent)] px-3 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Tạo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1922,6 +2115,7 @@ function WorkflowCanvas() {
           setInputNodeFiles({});
           setInputNodeLibraryUrls({});
           setPrompt('');
+          setScannedPrompt('');
           setResults([]);
           setVideoPrompt('');
           setVideoResult(null);

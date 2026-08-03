@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Brand, Template, ImageGeneration, VideoGeneration, TrainingCategory, TrainingPhrase, TrainingScenario, TrainingFAQ, TrainingStats } from '@/types';
+import { Brand, Template, ImageGeneration, VideoGeneration, TrainingCategory, TrainingPhrase, TrainingScenario, TrainingFAQ, TrainingStats, Project } from '@/types';
 import { clearAuthSession, getAuthToken } from './auth';
 
 const api = axios.create({
@@ -93,8 +93,39 @@ export async function createTemplate(templateData: Partial<Template>): Promise<T
   return data;
 }
 
+// Projects
+export async function getProjects(): Promise<Project[]> {
+  const { data } = await api.get('/projects');
+  return data;
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const { data } = await api.get(`/projects/${id}`);
+  return data;
+}
+
+export async function createProject(payload: {
+  name: string;
+  description?: string;
+  workflow?: Record<string, any>;
+}): Promise<Project> {
+  const { data } = await api.post('/projects', payload);
+  return data;
+}
+
+export async function updateProject(id: string, payload: {
+  name?: string;
+  description?: string | null;
+  workflow?: Record<string, any> | null;
+  is_active?: boolean;
+}): Promise<Project> {
+  const { data } = await api.put(`/projects/${id}`, payload);
+  return data;
+}
+
 // Image Generation
 export async function generateImage(payload: {
+  project_id?: string;
   brand_id?: string;
   template_id?: string;
   user_input: string;
@@ -192,6 +223,7 @@ export async function generateVideoStoryboard(payload: {
 }
 
 export async function getImageGenerations(params?: {
+  project_id?: string;
   brand_id?: string;
   status?: string;
   limit?: number;
@@ -218,6 +250,7 @@ export async function uploadFile(file: File): Promise<{ url: string }> {
 
 // Video Generation (Gemini Omni Flash)
 export async function generateVideo(payload: {
+  project_id?: string;
   prompt: string;
   input_image_url?: string;
   input_image_urls?: string[];

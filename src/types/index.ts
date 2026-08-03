@@ -21,8 +21,20 @@ export interface Template {
   updated_at: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description?: string | null;
+  workflow?: Record<string, any> | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ImageGeneration {
   id: string;
+  project_id?: string;
+  project?: Project;
   brand_id: string;
   brand?: Brand;
   template_id?: string;
@@ -44,6 +56,8 @@ export interface DashboardStats {
 
 export interface VideoGeneration {
   id: string;
+  project_id?: string;
+  project?: Project;
   prompt: string;
   input_image_url?: string;
   video_url?: string;

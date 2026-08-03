@@ -9,6 +9,7 @@ interface PromptNodeProps {
   selected?: boolean;
   data: {
     prompt?: string;
+    scannedPromptAvailable?: boolean;
     creatingStoryboard?: boolean;
     onChange?: (val: string) => void;
     onCreateStoryboard?: (prompt: string) => void;
@@ -49,7 +50,7 @@ Output phải là quảng cáo chuyên nghiệp, trang phục kín đáo, non-se
 ];
 
 function PromptNode({ data, selected }: PromptNodeProps) {
-  const { prompt = '', creatingStoryboard = false, onChange, onCreateStoryboard, onDelete } = data;
+  const { prompt = '', scannedPromptAvailable = false, creatingStoryboard = false, onChange, onCreateStoryboard, onDelete } = data;
   const [localPrompt, setLocalPrompt] = useState(prompt);
   const [templateOpen, setTemplateOpen] = useState(false);
 
@@ -83,7 +84,7 @@ function PromptNode({ data, selected }: PromptNodeProps) {
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 12px' }}>
           <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-gray-200 font-semibold text-[11px]">Prompt</span>
+          <span className="text-gray-200 font-semibold text-[11px]">Prompt thêm</span>
           <div className="flex items-center gap-1.5 ml-auto">
             {onCreateStoryboard && (
               <button
@@ -125,6 +126,12 @@ function PromptNode({ data, selected }: PromptNodeProps) {
           </div>
         </div>
 
+        {scannedPromptAvailable && (
+          <div className="mx-3 mt-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
+            <p className="text-[9px] font-medium text-emerald-300">Đã quét prompt từ ảnh tham khảo. Nội dung quét đang được dùng ẩn khi tạo ảnh.</p>
+          </div>
+        )}
+
         {templateOpen && (
           <div
             className="absolute right-2 top-9 z-50 w-56 rounded-lg border border-[#2a2a2a] bg-[#181818] p-1 shadow-2xl"
@@ -152,7 +159,7 @@ function PromptNode({ data, selected }: PromptNodeProps) {
             value={localPrompt}
             onChange={e => handleChange(e.target.value)}
             className="prompt-node-textarea h-full w-full bg-transparent text-[11px] text-gray-300 leading-relaxed outline-none px-3 py-2.5"
-            placeholder="Mô tả ý tưởng sáng tạo của bạn..."
+            placeholder="Prompt thêm: VD học style thiết kế, lấy hình nhân vật từ ảnh đầu vào cho vào..."
             onPointerDown={e => e.stopPropagation()}
           />
         </div>
@@ -160,7 +167,7 @@ function PromptNode({ data, selected }: PromptNodeProps) {
         {/* Footer hint */}
         {localPrompt.trim().length === 0 && (
           <div className="px-3 pb-2.5">
-            <p className="text-[9px] text-gray-600">Nhập prompt rồi nhấn <span className="text-red-400">Run ▶</span></p>
+            <p className="text-[9px] text-gray-600">Nhập prompt thêm nếu cần rồi nhấn <span className="text-red-400">Run ▶</span></p>
           </div>
         )}
 

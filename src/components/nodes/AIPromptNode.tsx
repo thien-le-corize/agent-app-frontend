@@ -215,23 +215,11 @@ function AIPromptNode({ id, data }: AIPromptNodeProps) {
               </div>
             )}
 
-            {/* Generated prompt — full width, cuộn được */}
+            {/* Generated prompt is kept internal to keep the workflow compact. */}
             {generatedPrompt && !loading && (
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(34,197,94,0.2)' }}>
-                <div className="flex items-center justify-between px-2.5 py-1.5" style={{ background: 'rgba(34,197,94,0.08)', borderBottom: '1px solid rgba(34,197,94,0.15)' }}>
-                  <p className="text-[9px] text-emerald-400 font-semibold uppercase tracking-wider">Output Prompt</p>
-                  <span className="text-[9px] text-gray-600">{generatedPrompt.length} chars</span>
-                </div>
-                <textarea
-                  value={generatedPrompt}
-                  onChange={e => {
-                    setGeneratedPrompt(e.target.value);
-                    setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generatedPrompt: e.target.value } } : n));
-                  }}
-                  className="w-full bg-transparent text-[10px] text-gray-300 leading-relaxed outline-none resize-none px-2.5 py-2"
-                  rows={6}
-                  onPointerDown={e => e.stopPropagation()}
-                />
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2">
+                <p className="text-[10px] font-medium text-emerald-300">Đã tạo prompt</p>
+                <p className="text-[9px] text-gray-500">Prompt đang được dùng ẩn khi nối sang Generate.</p>
               </div>
             )}
           </div>
