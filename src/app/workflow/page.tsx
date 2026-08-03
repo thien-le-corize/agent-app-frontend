@@ -167,6 +167,46 @@ function resolveProjectBrand(project: Project | null, brandList: Brand[]) {
   return brandList.find((brand) => brand.id === project.brand_id) || project.brand || null;
 }
 
+type ImageGenerationSize = '1024x1024' | '1536x1024' | '1024x1536';
+
+function loadImageDimensions(src: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function inferImageSizeFromReferences(urls: string[]): Promise<{ size: ImageGenerationSize; instruction: string } | null> {
+  for (const url of urls.slice(0, 4)) {
+    try {
+      const { width, height } = await loadImageDimensions(url);
+      if (!width || !height) continue;
+
+      const ratio = width / height;
+      if (ratio > 1.08) {
+        const isWideCover = ratio >= 1.7;
+        return {
+          size: '1536x1024',
+          instruction: `[Kich thuoc dau ra bat buoc: Anh tham khao la khung ngang ${width}x${height}. Tao anh ngang/banner, khong tao anh vuong, khong crop thanh khung vuong.${isWideCover ? ' Neu day la banner cover Facebook, giu bo cuc trai-phai rong, nhieu negative space ngang va cover-safe composition.' : ''}]`,
+        };
+      }
+      if (ratio < 0.92) {
+        return {
+          size: '1024x1536',
+          instruction: `[Kich thuoc dau ra bat buoc: Anh tham khao la khung doc ${width}x${height}. Tao anh doc, khong tao anh vuong, khong crop thanh khung vuong.]`,
+        };
+      }
+      return {
+        size: '1024x1024',
+        instruction: `[Kich thuoc dau ra bat buoc: Anh tham khao gan khung vuong ${width}x${height}. Tao anh vuong.]`,
+      };
+    } catch {}
+  }
+  return null;
+}
+
 function removeGeneratedBrandAnalysis(description?: string | null) {
   return (description || '')
     .split('\n')
@@ -1005,6 +1045,7 @@ function WorkflowCanvas() {
           }
 
           batchNodes.forEach((node) => processedStoryboardImageNodes.add(node.id));
+          const storyboardImageSize = await inferImageSizeFromReferences(refImages);
           setNodes((nds) => nds.map((node) => batchNodes.some((batchNode) => batchNode.id === node.id)
             ? { ...node, data: { ...node.data, status: 'running', generating: true } }
             : node
@@ -1015,13 +1056,17 @@ function WorkflowCanvas() {
             const frameIndex = typeof (node.data as any)?.index === 'number'
               ? (node.data as any).index
               : storyboardImageNodes.findIndex((candidate) => candidate.id === node.id);
-            const referencePrompt = buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames);
+            const referencePrompt = [
+              buildStoryboardReferenceImagePrompt(script, frameIndex, totalFrames),
+              storyboardImageSize?.instruction,
+            ].filter(Boolean).join('\n\n');
             const res = await generateImage({
               project_id: currentProject.id,
               ...(currentBrand?.id ? { brand_id: currentBrand.id } : {}),
               user_input: referencePrompt,
               reference_images: refImages.length > 0 ? refImages.slice(0, 3) : undefined,
               input_images: inputImages.length > 0 ? inputImages.slice(0, 3) : undefined,
+              ...(storyboardImageSize ? { size: storyboardImageSize.size } : {}),
               variation_index: frameIndex + 1,
             });
 
@@ -1087,12 +1132,17 @@ function WorkflowCanvas() {
           if (currentBrand?.logo_url) {
             enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
           }
+          const inferredImageSize = await inferImageSizeFromReferences(styleReferenceImages.length > 0 ? styleReferenceImages : allRefImages);
+          if (inferredImageSize) {
+            enhancedPrompt += `\n\n${inferredImageSize.instruction}`;
+          }
           enhancedPrompt += `\n\n[Professional safety: Always output a polished, non-sexual, family-safe professional advertisement. Use modest clothing, clean healthcare/commercial lighting, and brand-safe dental marketing aesthetics. Do not preserve provocative wardrobe, seductive pose, body-emphasis, bedroom/mirror-selfie intimacy, erotic mood, or suggestive framing from any input image.]`;
           enhancedPrompt += `\n\n[Ngôn ngữ bắt buộc: Mọi chữ hiển thị trong ảnh cuối phải là tiếng Việt có dấu, tự nhiên, đúng chính tả. Không dùng tiếng Anh trong headline, CTA, badge, footer, ưu đãi, địa chỉ, caption hoặc bất kỳ text overlay nào. Nếu prompt hoặc ảnh tham khảo có chữ tiếng Anh, hãy chuyển nghĩa sang tiếng Việt trước khi đưa vào ảnh.]`;
           enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
 
           console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
           console.log(`[Flow] Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
+          console.log(`[Flow] Inferred image size: ${inferredImageSize?.size || 'default'}`);
 
           const res = await generateImage({
             project_id: currentProject.id,
@@ -1101,6 +1151,7 @@ function WorkflowCanvas() {
             reference_images: allRefImages.length > 0 ? allRefImages : undefined,
             input_images: inputImages.length > 0 ? inputImages : undefined,
             style_reference_images: styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+            ...(inferredImageSize ? { size: inferredImageSize.size } : {}),
             variation_index: generateVariationIndex,
           });
           const responses = [res];
@@ -1239,12 +1290,18 @@ function WorkflowCanvas() {
         refUrls.push(url);
       }
       const allRefs = [...imageUrls, ...refUrls];
+      const inferredImageSize = await inferImageSizeFromReferences(allRefs);
+      const regeneratePrompt = [
+        newPrompt || editPrompt || currentComposedPrompt,
+        inferredImageSize?.instruction,
+      ].filter(Boolean).join('\n\n');
 
       const res = await generateImage({
         project_id: currentProject.id,
         brand_id: currentBrand.id,
-        user_input: newPrompt || editPrompt || currentComposedPrompt,
+        user_input: regeneratePrompt,
         reference_images: allRefs.length > 0 ? allRefs : undefined,
+        ...(inferredImageSize ? { size: inferredImageSize.size } : {}),
       });
 
       const updated = [...results];
@@ -1605,12 +1662,18 @@ function WorkflowCanvas() {
 
     try {
       const imageUrls = await collectImageUrlsForNode(storyboardImageNodeId);
+      const inferredImageSize = await inferImageSizeFromReferences(imageUrls);
+      const storyboardPrompt = [
+        promptText,
+        inferredImageSize?.instruction,
+      ].filter(Boolean).join('\n\n');
       const res = await generateImage({
         project_id: selectedProject.id,
         ...(selectedBrand?.id ? { brand_id: selectedBrand.id } : {}),
-        user_input: promptText,
+        user_input: storyboardPrompt,
         reference_images: imageUrls.length > 0 ? imageUrls.slice(0, 3) : undefined,
         input_images: imageUrls.length > 0 ? imageUrls.slice(0, 3) : undefined,
+        ...(inferredImageSize ? { size: inferredImageSize.size } : {}),
         variation_index: frameIndex + 1,
       });
 
