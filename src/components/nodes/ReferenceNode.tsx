@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { ChevronDown, ChevronUp, ImageIcon, X, Upload, Plus, BookImage, Wand2 } from 'lucide-react';
+import { ImageIcon, X, Upload, Plus, BookImage, Wand2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import NodeWrapper from './NodeWrapper';
 import ReferenceLibraryModal from '../ReferenceLibraryModal';
@@ -29,7 +29,6 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
   const { files = [], libraryUrls = [], onFilesAdd, onFileRemove, onLibraryUrlsChange, onAnalyze, analyzing, analysis, onAnalysisChange, onDelete } = data;
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [showAnalysisDetails, setShowAnalysisDetails] = useState(false);
 
   const onDrop = useCallback(async (accepted: File[]) => {
     // Upload lên server và lưu vào thư viện luôn
@@ -105,7 +104,7 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
 
   return (
     <NodeWrapper onDelete={onDelete}>
-      <div className="node-card nowheel" style={{ width: analysis && showAnalysisDetails ? 560 : 240, maxWidth: analysis && showAnalysisDetails ? 'none' : undefined, background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div className="node-card nowheel" style={{ width: analysis ? 560 : 240, maxWidth: analysis ? 'none' : undefined, background: '#141414', border: '1px solid #2a2a2a' }}>
         {/* Header */}
         <div className="node-header" style={{ background: '#1a1a1a', borderBottom: '1px solid #2a2a2a', padding: '8px 10px' }}>
           <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
@@ -117,16 +116,12 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
               </span>
             )}
             {analysis && (
-              <button
-                type="button"
-                onPointerDown={e => e.stopPropagation()}
-                onClick={() => setShowAnalysisDetails((open) => !open)}
-                className="flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300 hover:bg-emerald-500/20"
-                title="Ẩn/hiện chi tiết đã quét"
+              <span
+                className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300"
+                title="Đã quét prompt từ ảnh tham khảo"
               >
                 Đã quét
-                {showAnalysisDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
+              </span>
             )}
             {/* Nút mở thư viện */}
             <button
@@ -246,16 +241,7 @@ function ReferenceNode({ data }: ReferenceNodeProps) {
           </div>
         )}
 
-        {analysis && !showAnalysisDetails && (
-          <div className="px-2 pb-2">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
-              <p className="text-[10px] font-medium text-emerald-300">Prompt quét đang được dùng ẩn.</p>
-              <p className="text-[9px] text-gray-500">Text: {analysis.textItems?.length || 0} mục · Màu: {analysis.colorReplacements?.length || 0} mục</p>
-            </div>
-          </div>
-        )}
-
-        {analysis && showAnalysisDetails && (
+        {analysis && (
           <div className="grid grid-cols-2 gap-2 px-2 pb-2">
             <div className="space-y-2">
               <div className="rounded-lg p-2 space-y-1.5" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
