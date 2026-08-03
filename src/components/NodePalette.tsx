@@ -13,6 +13,7 @@ import {
   Search,
   ChevronDown,
   ImagePlus,
+  LayoutTemplate,
 } from 'lucide-react';
 
 export interface NodeTypeInfo {
@@ -52,7 +53,11 @@ const iconBgMap: Record<string, string> = {
   sky: 'bg-sky-500/20 text-sky-400',
 };
 
-export default function NodePalette() {
+interface NodePaletteProps {
+  onOpenWorkflowTemplates?: () => void;
+}
+
+export default function NodePalette({ onOpenWorkflowTemplates }: NodePaletteProps) {
   const onDragStart = (event: DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
@@ -97,6 +102,23 @@ export default function NodePalette() {
           />
         </div>
       </div>
+
+      {onOpenWorkflowTemplates && (
+        <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+          <button
+            type="button"
+            onClick={onOpenWorkflowTemplates}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition hover:opacity-90"
+            style={{ background: 'var(--accent)', color: '#ffffff' }}
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold leading-tight">Chọn template</p>
+              <p className="text-[10px] leading-tight text-white/75">Mở mẫu workflow nhanh</p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--panel-border)' }}>

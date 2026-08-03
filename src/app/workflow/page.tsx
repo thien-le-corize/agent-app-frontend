@@ -24,7 +24,7 @@ import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowT
 import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
-import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, LayoutTemplate, FolderOpen, Plus, Save } from 'lucide-react';
+import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Plus, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SidePanel from '@/components/SidePanel';
 
@@ -1784,7 +1784,7 @@ function WorkflowCanvas() {
   return (
     <div className="h-screen w-screen relative flex">
       {/* Node Palette - Left */}
-      <NodePalette />
+      <NodePalette onOpenWorkflowTemplates={() => setShowTemplates(true)} />
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col">
@@ -1830,13 +1830,6 @@ function WorkflowCanvas() {
               </button>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <button
-                onClick={() => setShowTemplates(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition"
-              >
-                <LayoutTemplate className="w-3.5 h-3.5" />
-                Templates
-              </button>
               <button
                 onClick={() => { if (confirm('Tạo workflow mặc định mới?')) resetToDefaultWorkflow(); }}
                 className="px-2.5 py-1.5 text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition"
