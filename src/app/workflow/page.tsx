@@ -162,6 +162,11 @@ function normalizeWorkflowDraft(workflow: any) {
   };
 }
 
+function resolveProjectBrand(project: Project | null, brandList: Brand[]) {
+  if (!project?.brand_id) return null;
+  return brandList.find((brand) => brand.id === project.brand_id) || project.brand || null;
+}
+
 function removeGeneratedBrandAnalysis(description?: string | null) {
   return (description || '')
     .split('\n')
@@ -524,7 +529,11 @@ function WorkflowCanvas() {
       setSelectedBrand(null);
       return;
     }
-    setSelectedBrand(project.brand_id ? brands.find((brand) => brand.id === project.brand_id) || null : null);
+    const projectBrand = resolveProjectBrand(project, brands);
+    if (projectBrand && !brands.some((brand) => brand.id === projectBrand.id)) {
+      setBrands((prev) => [...prev, projectBrand]);
+    }
+    setSelectedBrand(projectBrand);
     localStorage.setItem('selected_project_id', project.id);
     loadProjectWorkflow(project);
   }, [projects, brands, loadProjectWorkflow]);
@@ -582,8 +591,9 @@ function WorkflowCanvas() {
     if (!selectedProject.brand_id) {
       try {
         const updated = await updateProject(selectedProject.id, { brand_id: brand.id });
-        setSelectedProject(updated);
-        setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
+        const hydratedProject = { ...updated, brand };
+        setSelectedProject(hydratedProject);
+        setProjects((prev) => prev.map((project) => project.id === updated.id ? hydratedProject : project));
       } catch (error) {
         console.error('Attach brand to project error:', error);
         toast.error('Gắn brand vào dự án thất bại');
@@ -638,7 +648,11 @@ function WorkflowCanvas() {
         const initialProject = p.find((project) => project.id === savedProjectId) || p[0] || null;
         if (initialProject) {
           setSelectedProject(initialProject);
-          setSelectedBrand(initialProject.brand_id ? b.find((brand) => brand.id === initialProject.brand_id) || null : null);
+          const projectBrand = resolveProjectBrand(initialProject, b);
+          if (projectBrand && !b.some((brand) => brand.id === projectBrand.id)) {
+            setBrands((prev) => [...prev, projectBrand]);
+          }
+          setSelectedBrand(projectBrand);
           loadProjectWorkflow(initialProject);
         }
       } catch (err) { console.error(err); }
