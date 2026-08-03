@@ -18,10 +18,10 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, layoutConfigToPrompt } from '@/components/nodes';
+import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, ContentPlanNode, ContentGuidelineNode, ContentBriefNode, ContentOutputNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject, deleteProject } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, generateMarketingContent, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject, deleteProject } from '@/lib/api';
 import type { ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Save } from 'lucide-react';
@@ -32,7 +32,7 @@ import SidePanel from '@/components/SidePanel';
 // CONNECTION RULES - ComfyUI style: tự do nối, nhiều node cùng loại
 // ═══════════════════════════════════════════════
 const CONNECTION_RULES: Record<string, string[]> = {
-  brand: ['template', 'references', 'image', 'prompt', 'generate', 'aiprompt'],
+  brand: ['template', 'references', 'image', 'prompt', 'generate', 'aiprompt', 'contentPlan', 'contentGuideline', 'contentBrief', 'contentOutput'],
   template: ['prompt', 'generate', 'aiprompt'],
   references: ['prompt', 'generate', 'image', 'aiprompt', 'storyboard'],
   image: ['prompt', 'generate', 'image', 'video', 'aiprompt', 'storyboard'],
@@ -40,10 +40,14 @@ const CONNECTION_RULES: Record<string, string[]> = {
   prompt: ['generate', 'video', 'prompt', 'storyboard'],
   generate: ['video', 'generate', 'image', 'prompt'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt', 'storyboard', 'storyboardImage'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt', 'storyboard', 'storyboardImage', 'contentOutput'],
   aiprompt: ['generate', 'prompt', 'video', 'storyboard'],
   storyboard: ['video', 'prompt', 'storyboardImage'],
   storyboardImage: ['video'],
+  contentPlan: ['contentOutput'],
+  contentGuideline: ['contentOutput'],
+  contentBrief: ['contentOutput'],
+  contentOutput: [],
 };
 
 const initialNodes: Node[] = [
@@ -71,6 +75,24 @@ function getInitialWorkflow() {
 function getDefaultNodeStyle(type: string) {
   if (type === 'prompt') return { width: 360, height: 240 };
   return undefined;
+}
+
+function extractTextState(nodes: Node[], type: string) {
+  return nodes
+    .filter((node) => node.type === type)
+    .reduce<Record<string, string>>((acc, node) => {
+      acc[node.id] = typeof (node.data as any)?.text === 'string' ? (node.data as any).text : '';
+      return acc;
+    }, {});
+}
+
+function extractContentTypeState(nodes: Node[]) {
+  return nodes
+    .filter((node) => node.type === 'contentBrief')
+    .reduce<Record<string, 'facebook_ad' | 'daily_post' | 'video_script'>>((acc, node) => {
+      acc[node.id] = (node.data as any)?.contentType || 'facebook_ad';
+      return acc;
+    }, {});
 }
 
 function buildBrandPaletteInstruction(brand?: Brand | null) {
@@ -479,6 +501,11 @@ function WorkflowCanvas() {
 
   // Text notes
   const [textNotes, setTextNotes] = useState<Record<string, string>>({});
+  const [contentPlans, setContentPlans] = useState<Record<string, string>>({});
+  const [contentGuidelines, setContentGuidelines] = useState<Record<string, string>>({});
+  const [contentBriefs, setContentBriefs] = useState<Record<string, string>>({});
+  const [contentTypes, setContentTypes] = useState<Record<string, 'facebook_ad' | 'daily_post' | 'video_script'>>({});
+  const [contentOutputs, setContentOutputs] = useState<Record<string, string>>({});
   const [layoutConfigs, setLayoutConfigs] = useState<Record<string, any>>({});
   const [storyboards, setStoryboards] = useState<Record<string, string>>({});
   const [storyboardImages, setStoryboardImages] = useState<Record<string, string[]>>({});
@@ -501,6 +528,11 @@ function WorkflowCanvas() {
     setNodes(workflow.nodes);
     setEdges(workflow.edges);
     setScannedPrompt(workflow.scannedPrompt);
+    setContentPlans(extractTextState(workflow.nodes, 'contentPlan'));
+    setContentGuidelines(extractTextState(workflow.nodes, 'contentGuideline'));
+    setContentBriefs(extractTextState(workflow.nodes, 'contentBrief'));
+    setContentTypes(extractContentTypeState(workflow.nodes));
+    setContentOutputs(extractTextState(workflow.nodes, 'contentOutput'));
     setPrompt('');
     setResults([]);
     setVideoResult(null);
@@ -551,6 +583,11 @@ function WorkflowCanvas() {
     setLayoutConfigs({});
     setStoryboards({});
     setStoryboardImages({});
+    setContentPlans({});
+    setContentGuidelines({});
+    setContentBriefs({});
+    setContentTypes({});
+    setContentOutputs({});
     localStorage.removeItem('workflow_draft');
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
@@ -763,6 +800,14 @@ function WorkflowCanvas() {
   inputNodeLibraryUrlsRef.current = inputNodeLibraryUrls;
   const textNotesRef = useRef(textNotes);
   textNotesRef.current = textNotes;
+  const contentPlansRef = useRef(contentPlans);
+  contentPlansRef.current = contentPlans;
+  const contentGuidelinesRef = useRef(contentGuidelines);
+  contentGuidelinesRef.current = contentGuidelines;
+  const contentBriefsRef = useRef(contentBriefs);
+  contentBriefsRef.current = contentBriefs;
+  const contentTypesRef = useRef(contentTypes);
+  contentTypesRef.current = contentTypes;
   const layoutConfigsRef = useRef(layoutConfigs);
   layoutConfigsRef.current = layoutConfigs;
   const storyboardsRef = useRef(storyboards);
@@ -801,6 +846,10 @@ function WorkflowCanvas() {
     const inputNodeFiles = inputNodeFilesRef.current;
     const inputNodeLibraryUrls = inputNodeLibraryUrlsRef.current;
     const currentTextNotes = textNotesRef.current;
+    const currentContentPlans = contentPlansRef.current;
+    const currentContentGuidelines = contentGuidelinesRef.current;
+    const currentContentBriefs = contentBriefsRef.current;
+    const currentContentTypes = contentTypesRef.current;
     const currentLayoutConfigs = layoutConfigsRef.current;
     const currentStoryboards = storyboardsRef.current;
     const currentStoryboardImages = storyboardImagesRef.current;
@@ -808,9 +857,10 @@ function WorkflowCanvas() {
 
     // Cho phép chạy nếu có node aiprompt (AI sẽ tự tạo prompt) hoặc có prompt node với text
     const hasAIPromptNode = nodes.some((n) => n.type === 'aiprompt');
+    const hasContentOutputNode = nodes.some((n) => n.type === 'contentOutput');
     const hasPromptNodeWithText = nodes.some((n) => n.type === 'prompt' && (n.data as any)?.prompt?.trim());
-    if (!currentComposedPrompt.trim() && !hasAIPromptNode && !hasPromptNodeWithText) { 
-      toast.error('Nhập prompt thêm hoặc quét prompt từ ảnh tham khảo'); 
+    if (!currentComposedPrompt.trim() && !hasAIPromptNode && !hasPromptNodeWithText && !hasContentOutputNode) { 
+      toast.error('Nhập prompt thêm/brief content hoặc quét prompt từ ảnh tham khảo'); 
       return; 
     }
 
@@ -829,7 +879,8 @@ function WorkflowCanvas() {
       const aiPromptNodes = nodes.filter((n) => n.type === 'aiprompt' && connectedNodeIds.has(n.id));
       const storyboardNodes = nodes.filter((n) => n.type === 'storyboard' && connectedNodeIds.has(n.id));
       const storyboardImageNodes = nodes.filter((n) => n.type === 'storyboardImage' && connectedNodeIds.has(n.id));
-      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...storyboardImageNodes, ...generateNodes];
+      const contentOutputNodes = nodes.filter((n) => n.type === 'contentOutput' && connectedNodeIds.has(n.id));
+      const executableNodes = [...aiPromptNodes, ...storyboardNodes, ...storyboardImageNodes, ...generateNodes, ...contentOutputNodes];
 
       if (executableNodes.length === 0) {
         toast.error('Thêm node Ảnh Storybook hoặc Generate vào flow. Video chỉ chạy khi bấm Tạo Video.');
@@ -865,6 +916,10 @@ function WorkflowCanvas() {
         let refImages: string[] = [];
         let inputImages: string[] = [];
         let styleReferenceImages: string[] = [];
+        let marketingPlan = '';
+        let contentGuideline = '';
+        let contentBrief = '';
+        let contentType: 'facebook_ad' | 'daily_post' | 'video_script' = 'facebook_ad';
 
         for (const inp of allInputNodes) {
           if (!inp) continue;
@@ -899,6 +954,13 @@ function WorkflowCanvas() {
             if (noteText) {
               nodePrompt += `\n\n[Text node instruction]\n${noteText}`;
             }
+          } else if (inp.type === 'contentPlan') {
+            marketingPlan = [marketingPlan, currentContentPlans[inp.id] || (inp.data as any)?.text || ''].filter(Boolean).join('\n\n');
+          } else if (inp.type === 'contentGuideline') {
+            contentGuideline = [contentGuideline, currentContentGuidelines[inp.id] || (inp.data as any)?.text || ''].filter(Boolean).join('\n\n');
+          } else if (inp.type === 'contentBrief') {
+            contentBrief = [contentBrief, currentContentBriefs[inp.id] || (inp.data as any)?.text || ''].filter(Boolean).join('\n\n');
+            contentType = currentContentTypes[inp.id] || (inp.data as any)?.contentType || 'facebook_ad';
           } else if (inp.type === 'layout') {
             const layoutPrompt = layoutConfigToPrompt(currentLayoutConfigs[inp.id] || (inp.data as any)?.config || {});
             nodePrompt += `\n\n[Image layout node]\n${layoutPrompt}`;
@@ -1096,6 +1158,40 @@ function WorkflowCanvas() {
           } else {
             toast.success(`✅ ${batchNodes.length} ảnh tham chiếu xong`);
           }
+        } else if (execNode.type === 'contentOutput') {
+          const finalBrief = contentBrief || nodePrompt || currentComposedPrompt;
+          if (!finalBrief.trim()) {
+            setNodes((nds) => nds.map((n) => n.id === execNode.id
+              ? { ...n, data: { ...n.data, status: 'error', generating: false, error: 'Thiếu brief content' } }
+              : n
+            ));
+            toast.error('Nhập brief content trước khi viết');
+            continue;
+          }
+
+          const imageUrls = [...refImages, ...inputImages].filter(Boolean);
+          const { content } = await generateMarketingContent({
+            brand: currentBrand ? {
+              name: currentBrand.name,
+              primary_color: currentBrand.primary_color,
+              secondary_color: currentBrand.secondary_color,
+              description: currentBrand.description,
+              logo_url: currentBrand.logo_url,
+            } : undefined,
+            marketing_plan: marketingPlan,
+            guideline: contentGuideline,
+            brief: finalBrief,
+            content_type: contentType,
+            image_urls: imageUrls.length > 0 ? imageUrls.slice(0, 4) : undefined,
+          });
+
+          setContentOutputs((prev) => ({ ...prev, [execNode.id]: content }));
+          nodeResults[execNode.id] = content;
+          setNodes((nds) => nds.map((n) => n.id === execNode.id
+            ? { ...n, data: { ...n.data, status: 'done', generating: false, content, error: '' } }
+            : n
+          ));
+          toast.success('Đã viết content');
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
@@ -1952,11 +2048,38 @@ function WorkflowCanvas() {
           const noteText = textNotes[node.id] || '';
           return { ...node, data: { text: noteText, onChange: (val: string) => setTextNotes(prev => ({ ...prev, [node.id]: val })), onDelete: deleteHandler } };
         }
+        if (node.type === 'contentPlan') {
+          const text = contentPlans[node.id] ?? (node.data as any)?.text ?? '';
+          return { ...node, data: { ...node.data, text, onChange: (val: string) => setContentPlans(prev => ({ ...prev, [node.id]: val })), onDelete: deleteHandler } };
+        }
+        if (node.type === 'contentGuideline') {
+          const text = contentGuidelines[node.id] ?? (node.data as any)?.text ?? '';
+          return { ...node, data: { ...node.data, text, onChange: (val: string) => setContentGuidelines(prev => ({ ...prev, [node.id]: val })), onDelete: deleteHandler } };
+        }
+        if (node.type === 'contentBrief') {
+          const text = contentBriefs[node.id] ?? (node.data as any)?.text ?? '';
+          const contentType = contentTypes[node.id] || (node.data as any)?.contentType || 'facebook_ad';
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              text,
+              contentType,
+              onChange: (val: string) => setContentBriefs(prev => ({ ...prev, [node.id]: val })),
+              onTypeChange: (val: 'facebook_ad' | 'daily_post' | 'video_script') => setContentTypes(prev => ({ ...prev, [node.id]: val })),
+              onDelete: deleteHandler,
+            },
+          };
+        }
+        if (node.type === 'contentOutput') {
+          const content = contentOutputs[node.id] ?? (node.data as any)?.content ?? '';
+          return { ...node, data: { ...node.data, content, onDelete: deleteHandler } };
+        }
         return node;
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, contentPlans, contentGuidelines, contentBriefs, contentTypes, contentOutputs, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -1972,6 +2095,10 @@ function WorkflowCanvas() {
     aiprompt: AIPromptNode,
     storyboard: StoryboardNode,
     storyboardImage: StoryboardImageNode,
+    contentPlan: ContentPlanNode,
+    contentGuideline: ContentGuidelineNode,
+    contentBrief: ContentBriefNode,
+    contentOutput: ContentOutputNode,
   }), []);
 
   return (

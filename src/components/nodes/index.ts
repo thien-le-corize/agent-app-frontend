@@ -12,4 +12,8 @@ export { default as InputImageNode } from './InputImageNode';
 export { default as LayoutNode } from './LayoutNode';
 export { default as StoryboardNode } from './StoryboardNode';
 export { default as StoryboardImageNode } from './StoryboardImageNode';
+export { default as ContentPlanNode } from './ContentPlanNode';
+export { default as ContentGuidelineNode } from './ContentGuidelineNode';
+export { default as ContentBriefNode } from './ContentBriefNode';
+export { default as ContentOutputNode } from './ContentOutputNode';
 export { layoutConfigToPrompt } from './LayoutNode';

@@ -68,6 +68,29 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { id: 'e-ref-1-video', source: 'storyboard-image-1', target: 'video-1', animated: true },
     ],
   },
+  {
+    id: 'content-writing-workflow',
+    name: 'Viết content marketing',
+    description: 'Brand + plan MKT + guideline + brief/ảnh → content FB, daily hoặc video',
+    thumbnail: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop&q=80',
+    nodeCount: 6,
+    category: 'preset',
+    nodes: [
+      { id: 'brand-1', type: 'brand', position: { x: 40, y: 60 }, data: {} },
+      { id: 'plan-1', type: 'contentPlan', position: { x: 330, y: 35 }, data: {} },
+      { id: 'guideline-1', type: 'contentGuideline', position: { x: 330, y: 230 }, data: {} },
+      { id: 'image-1', type: 'image', position: { x: 330, y: 425 }, data: { label: 'Ảnh cần viết' } },
+      { id: 'brief-1', type: 'contentBrief', position: { x: 660, y: 175 }, data: { contentType: 'facebook_ad' } },
+      { id: 'content-output-1', type: 'contentOutput', position: { x: 1040, y: 130 }, data: {} },
+    ],
+    edges: [
+      { id: 'e-brand-plan', source: 'brand-1', target: 'plan-1', animated: true },
+      { id: 'e-plan-content', source: 'plan-1', target: 'content-output-1', animated: true },
+      { id: 'e-guideline-content', source: 'guideline-1', target: 'content-output-1', animated: true },
+      { id: 'e-image-content', source: 'image-1', target: 'content-output-1', animated: true },
+      { id: 'e-brief-content', source: 'brief-1', target: 'content-output-1', animated: true },
+    ],
+  },
 ];
 
 interface Props {

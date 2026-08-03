@@ -229,6 +229,24 @@ export async function generateVideoStoryboard(payload: {
   return data;
 }
 
+export async function generateMarketingContent(payload: {
+  brand?: {
+    name?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    description?: string;
+    logo_url?: string;
+  };
+  marketing_plan?: string;
+  guideline?: string;
+  brief: string;
+  content_type?: 'facebook_ad' | 'daily_post' | 'video_script';
+  image_urls?: string[];
+}): Promise<{ content: string }> {
+  const { data } = await api.post('/image-generations/generate-content', payload);
+  return data;
+}
+
 export async function getImageGenerations(params?: {
   project_id?: string;
   brand_id?: string;
