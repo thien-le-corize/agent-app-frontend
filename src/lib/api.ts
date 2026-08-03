@@ -94,8 +94,8 @@ export async function createTemplate(templateData: Partial<Template>): Promise<T
 }
 
 // Projects
-export async function getProjects(): Promise<Project[]> {
-  const { data } = await api.get('/projects');
+export async function getProjects(params?: { brand_id?: string }): Promise<Project[]> {
+  const { data } = await api.get('/projects', { params });
   return data;
 }
 
@@ -106,6 +106,7 @@ export async function getProject(id: string): Promise<Project> {
 
 export async function createProject(payload: {
   name: string;
+  brand_id?: string;
   description?: string;
   workflow?: Record<string, any>;
 }): Promise<Project> {
@@ -115,6 +116,7 @@ export async function createProject(payload: {
 
 export async function updateProject(id: string, payload: {
   name?: string;
+  brand_id?: string | null;
   description?: string | null;
   workflow?: Record<string, any> | null;
   is_active?: boolean;

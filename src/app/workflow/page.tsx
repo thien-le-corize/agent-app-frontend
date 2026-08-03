@@ -395,6 +395,7 @@ function WorkflowCanvas() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
+  const [autoCreatingBrandProjectId, setAutoCreatingBrandProjectId] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
@@ -450,6 +451,10 @@ function WorkflowCanvas() {
   const defaultWorkflow = useMemo(() => getInitialWorkflow(), []);
   const [nodes, setNodes, onNodesChange] = useNodesState(defaultWorkflow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(defaultWorkflow.edges);
+  const visibleProjects = useMemo(() => {
+    if (!selectedBrand) return projects;
+    return projects.filter((project) => project.brand_id === selectedBrand.id);
+  }, [projects, selectedBrand]);
 
   const loadProjectWorkflow = useCallback((project: Project) => {
     const workflow = normalizeWorkflowDraft(project.workflow);
@@ -541,6 +546,7 @@ function WorkflowCanvas() {
 
       const project = await createProject({
         name,
+        brand_id: selectedBrand?.id,
         workflow: initialWorkflow,
       });
       setProjects((prev) => [project, ...prev]);
@@ -556,7 +562,7 @@ function WorkflowCanvas() {
     } finally {
       setCreatingProject(false);
     }
-  }, [newProjectName, creatingProject, loadProjectWorkflow]);
+  }, [newProjectName, creatingProject, loadProjectWorkflow, selectedBrand?.id]);
 
   const handleSaveProjectWorkflow = useCallback(async () => {
     if (!selectedProject) {
@@ -566,7 +572,10 @@ function WorkflowCanvas() {
 
     try {
       const workflow = buildCurrentWorkflowPayload();
-      const updated = await updateProject(selectedProject.id, { workflow });
+      const updated = await updateProject(selectedProject.id, {
+        workflow,
+        brand_id: selectedBrand?.id || selectedProject.brand_id || null,
+      });
       setSelectedProject(updated);
       setProjects((prev) => prev.map((project) => project.id === updated.id ? updated : project));
       toast.success('Đã lưu workflow vào dự án');
@@ -574,7 +583,7 @@ function WorkflowCanvas() {
       console.error('Save project workflow error:', error);
       toast.error('Lưu workflow thất bại');
     }
-  }, [selectedProject, buildCurrentWorkflowPayload]);
+  }, [selectedProject, selectedBrand?.id, buildCurrentWorkflowPayload]);
 
   const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
     event.preventDefault();
@@ -601,6 +610,58 @@ function WorkflowCanvas() {
     }
     fetchData();
   }, [loadProjectWorkflow]);
+
+  useEffect(() => {
+    if (!selectedBrand) return;
+    if (selectedProject?.brand_id === selectedBrand.id) return;
+
+    const matchingProject = projects.find((project) => project.brand_id === selectedBrand.id);
+    if (matchingProject) {
+      setSelectedProject(matchingProject);
+      localStorage.setItem('selected_project_id', matchingProject.id);
+      loadProjectWorkflow(matchingProject);
+      return;
+    }
+
+    if (autoCreatingBrandProjectId === selectedBrand.id) return;
+
+    const brand = selectedBrand;
+    let cancelled = false;
+    setAutoCreatingBrandProjectId(brand.id);
+
+    async function createBrandProject() {
+      try {
+        const project = await createProject({
+          name: `Dự án ${brand.name}`,
+          brand_id: brand.id,
+          workflow: buildCurrentWorkflowPayload(),
+        });
+        if (cancelled) return;
+        setProjects((prev) => [project, ...prev]);
+        setSelectedProject(project);
+        localStorage.setItem('selected_project_id', project.id);
+        loadProjectWorkflow(project);
+        toast.success(`Đã tạo dự án riêng cho ${brand.name}`);
+      } catch (error) {
+        console.error('Create brand project error:', error);
+        toast.error('Tạo dự án theo brand thất bại');
+      } finally {
+        if (!cancelled) setAutoCreatingBrandProjectId(null);
+      }
+    }
+
+    createBrandProject();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedBrand,
+    selectedProject?.brand_id,
+    projects,
+    autoCreatingBrandProjectId,
+    buildCurrentWorkflowPayload,
+    loadProjectWorkflow,
+  ]);
 
   // ═══════════════════════════════════════════════
   // RUN FLOW - Nút chạy chính
@@ -1807,7 +1868,7 @@ function WorkflowCanvas() {
                 className="project-select min-w-[170px] rounded-md border border-transparent px-1 py-1 text-[12px] font-medium outline-none"
               >
                 <option value="">Chọn dự án</option>
-                {projects.map((project) => (
+                {visibleProjects.map((project) => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
@@ -1817,14 +1878,14 @@ function WorkflowCanvas() {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') handleCreateProject();
                 }}
-                placeholder="Tên dự án mới"
+                placeholder={selectedBrand ? `Dự án ${selectedBrand.name}` : 'Tên dự án mới'}
                 className="w-32 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[12px] text-[var(--text-primary)] outline-none"
               />
               <button
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim() || creatingProject}
                 className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-white disabled:cursor-not-allowed disabled:opacity-50"
-                title="Tạo dự án"
+                title={selectedBrand ? `Tạo dự án cho ${selectedBrand.name}` : 'Tạo dự án'}
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>

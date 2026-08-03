@@ -24,6 +24,8 @@ export interface Template {
 export interface Project {
   id: string;
   name: string;
+  brand_id?: string | null;
+  brand?: Brand | null;
   description?: string | null;
   workflow?: Record<string, any> | null;
   is_active: boolean;
