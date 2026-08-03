@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from 'reactflow';
-import { Palette, Check, Pencil, Trash2, Wand2 } from 'lucide-react';
+import { Palette, Check, Pencil, Wand2 } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface BrandNodeProps {
@@ -12,13 +12,12 @@ interface BrandNodeProps {
     onEdit?: (brand: any) => void;
     onAnalyzeBrand?: () => void | Promise<void>;
     analyzingBrand?: boolean;
-    onDeleteBrand?: (brand: any) => void;
     onDelete?: () => void;
   };
 }
 
 function BrandNode({ data }: BrandNodeProps) {
-  const { brands = [], selectedBrand, onSelect, onEdit, onAnalyzeBrand, analyzingBrand, onDeleteBrand, onDelete } = data;
+  const { selectedBrand, onSelect, onEdit, onAnalyzeBrand, analyzingBrand, onDelete } = data;
 
   return (
     <NodeWrapper onDelete={onDelete}>
@@ -76,31 +75,16 @@ function BrandNode({ data }: BrandNodeProps) {
               </div>
             </div>
           ) : (
-            <>
-              <div className="max-h-32 overflow-y-auto space-y-0.5">
-                {brands.map((b: any) => (
-                  <div key={b.id} className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition cursor-pointer">
-                    <button onClick={() => onSelect?.(b)} className="flex items-center gap-2 flex-1 text-left">
-                      {b.logo_url ? (
-                        <img src={b.logo_url} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-md flex-shrink-0" style={{ backgroundColor: b.primary_color, border: '1px solid #333' }} />
-                      )}
-                      <span className="text-[11px] text-gray-300 truncate">{b.name}</span>
-                    </button>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                      <button onClick={() => onEdit?.(b)} className="p-1 rounded hover:bg-white/10 text-gray-600 hover:text-blue-400">
-                        <Pencil className="w-2.5 h-2.5" />
-                      </button>
-                      <button onClick={() => onDeleteBrand?.(b)} className="p-1 rounded hover:bg-white/10 text-gray-600 hover:text-red-400">
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {brands.length === 0 && <p className="text-[10px] text-gray-600 text-center py-3">Chưa có brand nào</p>}
-              </div>
-            </>
+            <div
+              className="rounded-xl px-3 py-4 text-center"
+              style={{ border: '1px dashed #2a2a2a', background: '#111111' }}
+            >
+              <Palette className="mx-auto mb-2 h-4 w-4 text-violet-400/70" />
+              <p className="text-[11px] font-medium text-gray-400">Chưa gắn brand</p>
+              <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
+                Tạo brand mới để tự động active cho dự án này
+              </p>
+            </div>
           )}
         </div>
 
