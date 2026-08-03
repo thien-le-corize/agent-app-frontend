@@ -1804,7 +1804,7 @@ function WorkflowCanvas() {
               <select
                 value={selectedProject?.id || ''}
                 onChange={(event) => handleSelectProject(event.target.value)}
-                className="min-w-[170px] bg-transparent text-[12px] font-medium text-[var(--text-primary)] outline-none"
+                className="project-select min-w-[170px] rounded-md border border-transparent px-1 py-1 text-[12px] font-medium outline-none"
               >
                 <option value="">Chọn dự án</option>
                 {projects.map((project) => (

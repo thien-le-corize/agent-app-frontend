@@ -170,6 +170,17 @@
     overflow: auto;
   }
 
+  .project-select {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    color-scheme: dark;
+  }
+
+  .project-select option {
+    background: #ffffff;
+    color: #111827;
+  }
+
   .node-card button,
   .node-card input,
   .node-card textarea,
