@@ -1939,6 +1939,8 @@ function WorkflowCanvas() {
   regenerateStoryboardNodeRef.current = regenerateStoryboardNode;
   const regenerateStoryboardImageNodeRef = useRef(regenerateStoryboardImageNode);
   regenerateStoryboardImageNodeRef.current = regenerateStoryboardImageNode;
+  const handlePublishFacebookPostRef = useRef(handlePublishFacebookPost);
+  handlePublishFacebookPostRef.current = handlePublishFacebookPost;
   const deleteNodeRef = useRef(deleteNode);
   deleteNodeRef.current = deleteNode;
 
@@ -2186,7 +2188,7 @@ function WorkflowCanvas() {
                   : candidate
                 ));
               },
-              onPublish: () => handlePublishFacebookPost(node.id),
+              onPublish: () => handlePublishFacebookPostRef.current(node.id),
               onDelete: deleteHandler,
             },
           };
@@ -2195,7 +2197,7 @@ function WorkflowCanvas() {
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, contentPlans, contentGuidelines, contentBriefs, contentTypes, contentOutputs, facebookPages, facebookPublishPages, facebookPublishing, facebookPublishResults, facebookPublishErrors, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand, handlePublishFacebookPost]);
+  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, contentPlans, contentGuidelines, contentBriefs, contentTypes, contentOutputs, facebookPages, facebookPublishPages, facebookPublishing, facebookPublishResults, facebookPublishErrors, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
