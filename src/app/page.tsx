@@ -18,6 +18,7 @@ import {
 import { AppShell, Header } from '@/components/layout';
 import { MetricCard, StatusIndicator, DataTable, Column, ActionBadge } from '@/components/dashboard';
 import ApiKeysSettings from '@/components/settings/ApiKeysSettings';
+import FanpageSettings from '@/components/settings/FanpageSettings';
 
 // Mock data for demo - replace with actual API calls
 const mockStats = {
@@ -231,7 +232,10 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-auto p-6 space-y-6">
         {activeTab === 'settings' ? (
-          <ApiKeysSettings />
+          <div className="space-y-6">
+            <ApiKeysSettings />
+            <FanpageSettings />
+          </div>
         ) : (
           <>
         {/* Metrics Row */}
