@@ -11,6 +11,7 @@ import {
   X,
   ChevronDown,
   Facebook,
+  Trash2,
 } from 'lucide-react';
 import {
   getTrainingStats,
@@ -316,6 +317,28 @@ Bạn là 1 chuyên gia tư vấn niềng răng tại Dr.Wondersmile. Bạn thâ
     }
   };
 
+  const handleDisconnectFacebookPage = async () => {
+    if (!selectedBotId || !selectedBot) return;
+    const facebookName = selectedBot.settings?.facebook?.page_name || selectedBot.settings?.facebook?.page_id || 'fanpage';
+    if (!confirm(`Gỡ kết nối ${facebookName}?`)) return;
+
+    try {
+      setConnectingFacebook(true);
+      const nextSettings = { ...(selectedBot.settings || {}) };
+      delete nextSettings.facebook;
+      delete nextSettings.facebook_oauth_pages;
+      const updatedBot = await updateChatbot(selectedBotId, { settings: nextSettings });
+      setChatbots((prev) => prev.map((bot) => bot.id === selectedBotId ? updatedBot : bot));
+      setFacebookOAuthPages([]);
+      setFacebookForm({ page_id: '', page_name: '', page_access_token: '', verify_token: '', app_secret: '' });
+      toast.success('Đã gỡ kết nối fanpage');
+    } catch {
+      toast.error('Không thể gỡ kết nối fanpage');
+    } finally {
+      setConnectingFacebook(false);
+    }
+  };
+
   const handleSaveBot = async () => {
     if (!selectedBotId) return;
     try {
@@ -612,9 +635,56 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
             </div>
 
             <div className="space-y-4">
+              {selectedBot?.settings?.facebook?.status === 'connected' && (
+                <div className="rounded-lg p-3" style={{ background: 'var(--accent-blue-muted)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[12px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                        Fanpage đang kết nối
+                      </div>
+                      <div className="text-[13px] font-medium" style={{ color: 'var(--accent-blue)' }}>
+                        {selectedBot.settings.facebook.page_name || selectedBot.settings.facebook.page_id}
+                      </div>
+                      <div className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Page ID: {selectedBot.settings.facebook.page_id}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleDisconnectFacebookPage}
+                      disabled={connectingFacebook}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium disabled:opacity-50"
+                      style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.24)' }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Gỡ
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleSyncFacebookProfile}
+                      disabled={connectingFacebook}
+                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50"
+                      style={{ background: 'var(--accent-blue)', color: 'white' }}
+                    >
+                      {connectingFacebook && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Đồng bộ
+                    </button>
+                    <button
+                      onClick={handleFacebookOAuth}
+                      disabled={connectingFacebook}
+                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50"
+                      style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Đổi/thêm page
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                  Kết nối trực tiếp
+                  {selectedBot?.settings?.facebook?.status === 'connected' ? 'Thêm hoặc đổi fanpage' : 'Kết nối trực tiếp'}
                 </label>
                 <button
                   onClick={handleFacebookOAuth}
@@ -655,23 +725,6 @@ ${aiRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {selectedBot?.settings?.facebook?.status === 'connected' && (
-                <div className="rounded-lg p-3" style={{ background: 'var(--accent-blue-muted)', border: '1px solid var(--border)' }}>
-                  <div className="text-[12px] mb-3" style={{ color: 'var(--text-primary)' }}>
-                    Fanpage đã kết nối: {selectedBot.settings.facebook.page_name || selectedBot.settings.facebook.page_id}
-                  </div>
-                  <button
-                    onClick={handleSyncFacebookProfile}
-                    disabled={connectingFacebook}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50"
-                    style={{ background: 'var(--accent-blue)', color: 'white' }}
-                  >
-                    {connectingFacebook && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Đồng bộ mẫu tin nhắn nhanh
-                  </button>
                 </div>
               )}
 
