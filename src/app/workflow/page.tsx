@@ -18,11 +18,11 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, ContentPlanNode, ContentGuidelineNode, ContentBriefNode, ContentOutputNode, layoutConfigToPrompt } from '@/components/nodes';
+import { BrandNode, TemplateNode, ReferenceNode, ImageNode, PromptNode, GenerateNode, VideoNode, TextNode, AIPromptNode, InputImageNode, LayoutNode, StoryboardNode, StoryboardImageNode, ContentPlanNode, ContentGuidelineNode, ContentBriefNode, ContentOutputNode, FacebookPublishNode, layoutConfigToPrompt } from '@/components/nodes';
 import NodePalette from '@/components/NodePalette';
 import WorkflowTemplatesModal, { WorkflowTemplate } from '@/components/WorkflowTemplatesModal';
-import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, generateMarketingContent, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject, deleteProject } from '@/lib/api';
-import type { ReferenceStructureAnalysis } from '@/lib/api';
+import { getBrands, getTemplates, generateImage, generateVideo, getVideoGeneration, uploadFile, generateAIPrompt, generateVideoStoryboard, generateMarketingContent, getConnectedFacebookPages, publishFacebookPost, analyzeReferenceStructure, analyzeBrandAsset, updateBrand, getProjects, createProject, updateProject, deleteProject } from '@/lib/api';
+import type { ConnectedFacebookPage, ReferenceStructureAnalysis } from '@/lib/api';
 import { Brand, Template, ImageGeneration, VideoGeneration, Project } from '@/types';
 import { Sparkles, Play, Trash2, X, RefreshCw, Download, Edit3, ImageIcon, FolderOpen, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -32,22 +32,23 @@ import SidePanel from '@/components/SidePanel';
 // CONNECTION RULES - ComfyUI style: tự do nối, nhiều node cùng loại
 // ═══════════════════════════════════════════════
 const CONNECTION_RULES: Record<string, string[]> = {
-  brand: ['template', 'references', 'image', 'prompt', 'generate', 'aiprompt', 'contentPlan', 'contentGuideline', 'contentBrief', 'contentOutput'],
+  brand: ['template', 'references', 'image', 'prompt', 'generate', 'aiprompt', 'contentPlan', 'contentGuideline', 'contentBrief', 'contentOutput', 'facebookPublish'],
   template: ['prompt', 'generate', 'aiprompt'],
-  references: ['prompt', 'generate', 'image', 'aiprompt', 'storyboard'],
-  image: ['prompt', 'generate', 'image', 'video', 'aiprompt', 'storyboard'],
-  input: ['prompt', 'generate', 'aiprompt', 'storyboard'],
-  prompt: ['generate', 'video', 'prompt', 'storyboard'],
-  generate: ['video', 'generate', 'image', 'prompt'],
+  references: ['prompt', 'generate', 'image', 'aiprompt', 'storyboard', 'facebookPublish'],
+  image: ['prompt', 'generate', 'image', 'video', 'aiprompt', 'storyboard', 'facebookPublish'],
+  input: ['prompt', 'generate', 'aiprompt', 'storyboard', 'facebookPublish'],
+  prompt: ['generate', 'video', 'prompt', 'storyboard', 'facebookPublish'],
+  generate: ['video', 'generate', 'image', 'prompt', 'facebookPublish'],
   video: ['video'],
-  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt', 'storyboard', 'storyboardImage', 'contentOutput'],
+  text: ['brand', 'template', 'references', 'image', 'input', 'prompt', 'generate', 'video', 'text', 'aiprompt', 'storyboard', 'storyboardImage', 'contentOutput', 'facebookPublish'],
   aiprompt: ['generate', 'prompt', 'video', 'storyboard'],
-  storyboard: ['video', 'prompt', 'storyboardImage'],
-  storyboardImage: ['video'],
+  storyboard: ['video', 'prompt', 'storyboardImage', 'facebookPublish'],
+  storyboardImage: ['video', 'facebookPublish'],
   contentPlan: ['contentOutput'],
   contentGuideline: ['contentOutput'],
   contentBrief: ['contentOutput'],
-  contentOutput: [],
+  contentOutput: ['facebookPublish'],
+  facebookPublish: [],
 };
 
 const initialNodes: Node[] = [
@@ -91,6 +92,15 @@ function extractContentTypeState(nodes: Node[]) {
     .filter((node) => node.type === 'contentBrief')
     .reduce<Record<string, 'facebook_ad' | 'daily_post' | 'video_script'>>((acc, node) => {
       acc[node.id] = (node.data as any)?.contentType || 'facebook_ad';
+      return acc;
+    }, {});
+}
+
+function extractFacebookPageState(nodes: Node[]) {
+  return nodes
+    .filter((node) => node.type === 'facebookPublish')
+    .reduce<Record<string, string>>((acc, node) => {
+      acc[node.id] = (node.data as any)?.selectedPageId || '';
       return acc;
     }, {});
 }
@@ -506,6 +516,11 @@ function WorkflowCanvas() {
   const [contentBriefs, setContentBriefs] = useState<Record<string, string>>({});
   const [contentTypes, setContentTypes] = useState<Record<string, 'facebook_ad' | 'daily_post' | 'video_script'>>({});
   const [contentOutputs, setContentOutputs] = useState<Record<string, string>>({});
+  const [facebookPages, setFacebookPages] = useState<ConnectedFacebookPage[]>([]);
+  const [facebookPublishPages, setFacebookPublishPages] = useState<Record<string, string>>({});
+  const [facebookPublishing, setFacebookPublishing] = useState<Record<string, boolean>>({});
+  const [facebookPublishResults, setFacebookPublishResults] = useState<Record<string, { post_id?: string; page_name?: string }>>({});
+  const [facebookPublishErrors, setFacebookPublishErrors] = useState<Record<string, string>>({});
   const [layoutConfigs, setLayoutConfigs] = useState<Record<string, any>>({});
   const [storyboards, setStoryboards] = useState<Record<string, string>>({});
   const [storyboardImages, setStoryboardImages] = useState<Record<string, string[]>>({});
@@ -533,6 +548,9 @@ function WorkflowCanvas() {
     setContentBriefs(extractTextState(workflow.nodes, 'contentBrief'));
     setContentTypes(extractContentTypeState(workflow.nodes));
     setContentOutputs(extractTextState(workflow.nodes, 'contentOutput'));
+    setFacebookPublishPages(extractFacebookPageState(workflow.nodes));
+    setFacebookPublishResults({});
+    setFacebookPublishErrors({});
     setPrompt('');
     setResults([]);
     setVideoResult(null);
@@ -588,6 +606,9 @@ function WorkflowCanvas() {
     setContentBriefs({});
     setContentTypes({});
     setContentOutputs({});
+    setFacebookPublishPages({});
+    setFacebookPublishResults({});
+    setFacebookPublishErrors({});
     localStorage.removeItem('workflow_draft');
     toast.success('Đã tạo workflow mặc định');
   }, [setNodes, setEdges]);
@@ -750,10 +771,11 @@ function WorkflowCanvas() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [b, t, p] = await Promise.all([getBrands(), getTemplates(), getProjects()]);
+        const [b, t, p, fb] = await Promise.all([getBrands(), getTemplates(), getProjects(), getConnectedFacebookPages().catch(() => ({ pages: [] }))]);
         setBrands(b);
         setTemplates(t);
         setProjects(p);
+        setFacebookPages(fb.pages || []);
 
         const savedProjectId = localStorage.getItem('selected_project_id');
         const initialProject = p.find((project) => project.id === savedProjectId) || p[0] || null;
@@ -1683,6 +1705,65 @@ function WorkflowCanvas() {
     referenceLibraryUrls,
   ]);
 
+  const resolveFacebookMessageForNode = useCallback((nodeId: string) => {
+    const upstreamNodes = getUpstreamNodes(nodeId, edges, nodes);
+    const contentNode = upstreamNodes.find((node) => node.type === 'contentOutput');
+    if (contentNode) {
+      const content = contentOutputs[contentNode.id] || (contentNode.data as any)?.content || '';
+      if (content.trim()) return content.trim();
+    }
+
+    const textNode = upstreamNodes.find((node) => node.type === 'text');
+    if (textNode) {
+      const text = textNotes[textNode.id] || (textNode.data as any)?.text || '';
+      if (text.trim()) return text.trim();
+    }
+
+    const promptNode = upstreamNodes.find((node) => node.type === 'prompt');
+    if (promptNode) {
+      const promptText = (promptNode.data as any)?.prompt || '';
+      if (promptText.trim()) return composePrompt(scannedPrompt, promptText).trim();
+    }
+
+    return composePrompt(scannedPrompt, prompt).trim();
+  }, [contentOutputs, edges, nodes, prompt, scannedPrompt, textNotes]);
+
+  const handlePublishFacebookPost = useCallback(async (nodeId: string) => {
+    const pageId = facebookPublishPages[nodeId];
+    const message = resolveFacebookMessageForNode(nodeId);
+    if (!pageId) {
+      toast.error('Chọn fanpage trước khi đăng');
+      return;
+    }
+    if (!message) {
+      toast.error('Nối Content Writer/Text node hoặc nhập nội dung trước');
+      return;
+    }
+    if (!window.confirm('Đăng bài này lên fanpage đã chọn?')) return;
+
+    setFacebookPublishing((prev) => ({ ...prev, [nodeId]: true }));
+    setFacebookPublishErrors((prev) => ({ ...prev, [nodeId]: '' }));
+    try {
+      const imageUrls = await collectImageUrlsForNode(nodeId);
+      const result = await publishFacebookPost({
+        page_id: pageId,
+        message,
+        image_url: imageUrls[0],
+      });
+      setFacebookPublishResults((prev) => ({
+        ...prev,
+        [nodeId]: { post_id: result.post_id, page_name: result.page_name },
+      }));
+      toast.success('Đã đăng bài lên fanpage');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Đăng bài thất bại';
+      setFacebookPublishErrors((prev) => ({ ...prev, [nodeId]: message }));
+      toast.error(message);
+    } finally {
+      setFacebookPublishing((prev) => ({ ...prev, [nodeId]: false }));
+    }
+  }, [collectImageUrlsForNode, facebookPublishPages, resolveFacebookMessageForNode]);
+
   const regenerateStoryboardNode = useCallback(async (storyboardNodeId: string, scriptOverride?: string) => {
     const upstreamNodes = getUpstreamNodes(storyboardNodeId, edges, nodes);
     const upstreamPromptNode = upstreamNodes.find((node) => node.type === 'prompt');
@@ -2075,11 +2156,46 @@ function WorkflowCanvas() {
           const content = contentOutputs[node.id] ?? (node.data as any)?.content ?? '';
           return { ...node, data: { ...node.data, content, onDelete: deleteHandler } };
         }
+        if (node.type === 'facebookPublish') {
+          const upstreamNodes = getUpstreamNodes(node.id, edges, nds);
+          const contentNode = upstreamNodes.find((candidate) => candidate.type === 'contentOutput');
+          const textNode = upstreamNodes.find((candidate) => candidate.type === 'text');
+          const promptNode = upstreamNodes.find((candidate) => candidate.type === 'prompt');
+          const generateNode = upstreamNodes.find((candidate) => candidate.type === 'generate');
+          const message =
+            (contentNode ? contentOutputs[contentNode.id] || (contentNode.data as any)?.content : '') ||
+            (textNode ? textNotes[textNode.id] || (textNode.data as any)?.text : '') ||
+            (promptNode ? composePrompt(scannedPrompt, (promptNode.data as any)?.prompt || '') : '') ||
+            composePrompt(scannedPrompt, prompt);
+          const generatedImage = generateNode ? (generateNode.data as any)?.results?.find((result: any) => result?.result_url)?.result_url : '';
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              pages: facebookPages,
+              selectedPageId: facebookPublishPages[node.id] || (node.data as any)?.selectedPageId || '',
+              message,
+              imageUrl: generatedImage,
+              publishing: Boolean(facebookPublishing[node.id]),
+              published: facebookPublishResults[node.id] || null,
+              error: facebookPublishErrors[node.id] || '',
+              onSelectPage: (pageId: string) => {
+                setFacebookPublishPages((prev) => ({ ...prev, [node.id]: pageId }));
+                setNodes((currentNodes) => currentNodes.map((candidate) => candidate.id === node.id
+                  ? { ...candidate, data: { ...candidate.data, selectedPageId: pageId } }
+                  : candidate
+                ));
+              },
+              onPublish: () => handlePublishFacebookPost(node.id),
+              onDelete: deleteHandler,
+            },
+          };
+        }
         return node;
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, contentPlans, contentGuidelines, contentBriefs, contentTypes, contentOutputs, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand]);
+  }, [brands, templates, selectedBrand, selectedTemplate, selectedProject, referenceFiles, referenceLibraryUrls, referenceAnalysis, imageNodeFiles, imageNodeLibraryUrls, inputNodeFiles, inputNodeLibraryUrls, prompt, scannedPrompt, analyzingReferencePrompt, analyzingBrand, generating, results, numImages, videoPrompt, videoOptions, generatingVideo, videoResult, textNotes, contentPlans, contentGuidelines, contentBriefs, contentTypes, contentOutputs, facebookPages, facebookPublishPages, facebookPublishing, facebookPublishResults, facebookPublishErrors, layoutConfigs, storyboards, storyboardImages, creatingStoryboardFromPrompt, edges, handleAnalyzeReferencePrompt, handleReferenceAnalysisChange, handleAnalyzeBrand, handleSelectBrand, handlePublishFacebookPost]);
 
   const nodeTypes = useMemo(() => ({
     brand: BrandNode,
@@ -2099,6 +2215,7 @@ function WorkflowCanvas() {
     contentGuideline: ContentGuidelineNode,
     contentBrief: ContentBriefNode,
     contentOutput: ContentOutputNode,
+    facebookPublish: FacebookPublishNode,
   }), []);
 
   return (

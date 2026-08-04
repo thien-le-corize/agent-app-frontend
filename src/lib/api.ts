@@ -388,6 +388,34 @@ export async function syncFacebookProfile(id: string): Promise<{ status: string 
   return data;
 }
 
+export interface ConnectedFacebookPage {
+  bot_id: string;
+  bot_name: string;
+  page_id: string;
+  page_name: string;
+  connected_at?: string | null;
+}
+
+export async function getConnectedFacebookPages(): Promise<{ pages: ConnectedFacebookPage[] }> {
+  const { data } = await api.get('/chatbot-training/facebook/connected-pages');
+  return data;
+}
+
+export async function publishFacebookPost(payload: {
+  page_id: string;
+  message: string;
+  image_url?: string;
+}): Promise<{
+  status: string;
+  page_id: string;
+  page_name: string;
+  post_id?: string;
+  photo_id?: string;
+}> {
+  const { data } = await api.post('/chatbot-training/facebook/publish-post', payload);
+  return data;
+}
+
 export async function deleteChatbot(id: string): Promise<void> {
   await api.delete(`/chatbot-training/chatbots/${id}`);
 }

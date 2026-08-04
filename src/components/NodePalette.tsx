@@ -19,6 +19,7 @@ import {
   FilePenLine,
   CalendarDays,
   ClipboardList,
+  Facebook,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ export const NODE_TYPES_LIST: NodeTypeInfo[] = [
   { type: 'contentGuideline', label: 'Guideline', icon: ClipboardList, color: 'amber', description: 'Quy tắc giọng văn và nội dung' },
   { type: 'contentBrief', label: 'Brief content', icon: MessageSquare, color: 'emerald', description: 'Nội dung cần viết và loại bài' },
   { type: 'contentOutput', label: 'Viết content', icon: FilePenLine, color: 'rose', description: 'Tạo content FB, daily, video' },
+  { type: 'facebookPublish', label: 'Đăng Fanpage', icon: Facebook, color: 'blue', description: 'Đăng bài lên fanpage đã kết nối' },
   { type: 'generate',   label: 'Tạo ảnh',        icon: Sparkles,      color: 'rose',    description: 'Tạo hình ảnh' },
   { type: 'video',      label: 'Tạo video',      icon: Video,         color: 'red',     description: 'Tạo video' },
   { type: 'text',       label: 'Văn bản',        icon: Type,          color: 'gray',    description: 'Thêm nội dung vào prompt' },

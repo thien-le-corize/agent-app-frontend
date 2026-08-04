@@ -16,4 +16,5 @@ export { default as ContentPlanNode } from './ContentPlanNode';
 export { default as ContentGuidelineNode } from './ContentGuidelineNode';
 export { default as ContentBriefNode } from './ContentBriefNode';
 export { default as ContentOutputNode } from './ContentOutputNode';
+export { default as FacebookPublishNode } from './FacebookPublishNode';
 export { layoutConfigToPrompt } from './LayoutNode';
