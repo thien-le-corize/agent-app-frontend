@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, Check, Loader2, Upload, Search } from 'lucide-react';
-import { getReferenceImages, uploadReferenceImage, deleteReferenceImage } from '@/lib/api';
+import { getImageGenerations, getReferenceImages, uploadReferenceImage, deleteReferenceImage } from '@/lib/api';
 import { useDropzone } from 'react-dropzone';
 
 interface RefImage {
@@ -13,6 +13,7 @@ interface RefImage {
   label: string | null;
   tags: string[] | null;
   created_at: string;
+  source?: 'reference' | 'generated';
 }
 
 interface Props {
@@ -38,8 +39,28 @@ export default function ReferenceLibraryModal({ onClose, selectedUrls = [], onSe
   async function load() {
     setLoading(true);
     try {
-      const data = await getReferenceImages();
-      setImages(data);
+      const [referenceImages, generatedImages] = await Promise.all([
+        getReferenceImages(),
+        getImageGenerations().catch(() => []),
+      ]);
+      const refs = referenceImages.map((image) => ({ ...image, source: 'reference' as const }));
+      const generated = generatedImages
+        .filter((item) => item.status === 'completed' && item.result_url)
+        .map((item) => ({
+          id: `generated-${item.id}`,
+          url: item.result_url!,
+          original_name: 'Ảnh tạo từ workflow',
+          label: item.project?.name ? `Workflow - ${item.project.name}` : 'Ảnh tạo từ workflow',
+          tags: ['generated', 'workflow'],
+          created_at: item.created_at,
+          source: 'generated' as const,
+        }));
+      const seen = new Set<string>();
+      setImages([...generated, ...refs].filter((image) => {
+        if (seen.has(image.url)) return false;
+        seen.add(image.url);
+        return true;
+      }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -52,7 +73,7 @@ export default function ReferenceLibraryModal({ onClose, selectedUrls = [], onSe
     try {
       for (const file of files) {
         const res = await uploadReferenceImage(file, file.name);
-        setImages(prev => [{ ...res, original_name: file.name, tags: null, created_at: new Date().toISOString() } as RefImage, ...prev]);
+        setImages(prev => [{ ...res, original_name: file.name, tags: null, created_at: new Date().toISOString(), source: 'reference' } as RefImage, ...prev]);
       }
     } catch (e) {
       console.error(e);
@@ -78,6 +99,7 @@ export default function ReferenceLibraryModal({ onClose, selectedUrls = [], onSe
   };
 
   const handleDelete = async (img: RefImage) => {
+    if (img.source === 'generated') return;
     setDeletingId(img.id);
     try {
       await deleteReferenceImage(img.id);
@@ -119,7 +141,7 @@ export default function ReferenceLibraryModal({ onClose, selectedUrls = [], onSe
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #2a2a2a' }}>
           <div>
             <h2 className="text-white font-semibold text-sm">Thư viện hình tham khảo</h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">{images.length} ảnh đã lưu</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">{images.length} ảnh, gồm ảnh upload và ảnh đã tạo</p>
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
@@ -216,15 +238,22 @@ export default function ReferenceLibraryModal({ onClose, selectedUrls = [], onSe
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all" />
 
                     {/* Delete button */}
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(img); }}
-                      className="absolute top-2 right-2 w-6 h-6 bg-red-500/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                    >
-                      {deletingId === img.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <Trash2 className="w-3 h-3" />
-                      }
-                    </button>
+                    {img.source !== 'generated' && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDelete(img); }}
+                        className="absolute top-2 right-2 w-6 h-6 bg-red-500/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                      >
+                        {deletingId === img.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <Trash2 className="w-3 h-3" />
+                        }
+                      </button>
+                    )}
+                    {img.source === 'generated' && (
+                      <div className="absolute top-2 right-2 rounded-full bg-blue-500/90 px-2 py-0.5 text-[9px] font-medium text-white shadow">
+                        AI
+                      </div>
+                    )}
 
                     {/* Label dưới */}
                     <div
