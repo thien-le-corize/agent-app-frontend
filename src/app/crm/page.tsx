@@ -15,8 +15,7 @@ import {
 } from 'lucide-react';
 import { AppShell, Header } from '@/components/layout';
 import { MetricCard, StatusIndicator, DataTable, Column } from '@/components/dashboard';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import api from '@/lib/api';
 
 export default function CrmPage() {
   const [tab, setTab] = useState<'customers' | 'appointments'>('customers');
@@ -52,15 +51,18 @@ export default function CrmPage() {
     setLoading(true);
     try {
       const [cusRes, aptRes, statsRes] = await Promise.all([
-        fetch(`${API}/crm/customers`).then((r) => r.json()),
-        fetch(`${API}/crm/appointments`).then((r) => r.json()),
-        fetch(`${API}/crm/stats`).then((r) => r.json()),
+        api.get('/crm/customers'),
+        api.get('/crm/appointments'),
+        api.get('/crm/stats'),
       ]);
-      setCustomers(cusRes);
-      setAppointments(aptRes);
-      setStats(statsRes);
+      setCustomers(Array.isArray(cusRes.data) ? cusRes.data : []);
+      setAppointments(Array.isArray(aptRes.data) ? aptRes.data : []);
+      setStats(statsRes.data && typeof statsRes.data === 'object' ? statsRes.data : null);
     } catch {
       toast.error('Lỗi tải dữ liệu');
+      setCustomers([]);
+      setAppointments([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -81,18 +83,10 @@ export default function CrmPage() {
     try {
       setSubmitting(true);
       if (editingId) {
-        await fetch(`${API}/crm/customers/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(custForm),
-        });
+        await api.put(`/crm/customers/${editingId}`, custForm);
         toast.success('Đã cập nhật');
       } else {
-        await fetch(`${API}/crm/customers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(custForm),
-        });
+        await api.post('/crm/customers', custForm);
         toast.success('Đã thêm khách hàng');
       }
       resetForm();
@@ -112,18 +106,10 @@ export default function CrmPage() {
     try {
       setSubmitting(true);
       if (editingId) {
-        await fetch(`${API}/crm/appointments/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(aptForm),
-        });
+        await api.put(`/crm/appointments/${editingId}`, aptForm);
         toast.success('Đã cập nhật');
       } else {
-        await fetch(`${API}/crm/appointments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(aptForm),
-        });
+        await api.post('/crm/appointments', aptForm);
         toast.success('Đã đặt lịch');
       }
       resetForm();
@@ -138,7 +124,7 @@ export default function CrmPage() {
   const handleDelete = async (type: 'customers' | 'appointments', id: string) => {
     if (!confirm('Xóa?')) return;
     try {
-      await fetch(`${API}/crm/${type}/${id}`, { method: 'DELETE' });
+      await api.delete(`/crm/${type}/${id}`);
       toast.success('Đã xóa');
       loadData();
     } catch {
@@ -177,6 +163,19 @@ export default function CrmPage() {
     if (status === 'completed') return 'healthy';
     if (status === 'cancelled') return 'error';
     return 'inactive';
+  };
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   // Table columns
@@ -263,13 +262,7 @@ export default function CrmPage() {
       sortable: true,
       render: (row) => (
         <span style={{ color: 'var(--text-secondary)' }}>
-          {new Date(row.appointment_date).toLocaleString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatDateTime(row.appointment_date)}
         </span>
       ),
     },

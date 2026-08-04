@@ -39,6 +39,10 @@ interface DataTableProps<T> {
 
 type SortDirection = 'asc' | 'desc' | null;
 
+function getValueByPath(row: Record<string, any>, key: string) {
+  return key.split('.').reduce<any>((value, part) => value?.[part], row);
+}
+
 export default function DataTable<T extends Record<string, any>>({
   data,
   columns,
@@ -65,14 +69,14 @@ export default function DataTable<T extends Record<string, any>>({
 
   // Filter and search
   const filteredData = useMemo(() => {
-    let result = [...data];
+    let result = Array.isArray(data) ? [...data] : [];
 
     // Search
     if (search && searchKeys.length > 0) {
       const lowerSearch = search.toLowerCase();
       result = result.filter((row) =>
         searchKeys.some((key) =>
-          String(row[key] ?? '')
+          String(getValueByPath(row, key) ?? '')
             .toLowerCase()
             .includes(lowerSearch)
         )
@@ -82,8 +86,8 @@ export default function DataTable<T extends Record<string, any>>({
     // Sort
     if (sortKey && sortDir) {
       result.sort((a, b) => {
-        const aVal = a[sortKey];
-        const bVal = b[sortKey];
+        const aVal = getValueByPath(a, sortKey);
+        const bVal = getValueByPath(b, sortKey);
         if (aVal === bVal) return 0;
         const comparison = aVal < bVal ? -1 : 1;
         return sortDir === 'asc' ? comparison : -comparison;
