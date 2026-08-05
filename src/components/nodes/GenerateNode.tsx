@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { Sparkles, Loader2, Download, RefreshCw, Edit3, X, Send, Maximize2, ZoomIn } from 'lucide-react';
+import { Sparkles, Loader2, Download, RefreshCw, Edit3, X, Send, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import NodeWrapper from './NodeWrapper';
 
 interface GenerateNodeProps {
@@ -14,11 +14,13 @@ interface GenerateNodeProps {
     onDelete?: () => void;
     status?: 'idle' | 'running' | 'done' | 'error';
     lastPrompt?: string;
+    mode?: 'generate' | 'edit';
+    onModeChange?: (mode: 'generate' | 'edit') => void;
   };
 }
 
 function GenerateNode({ id, data }: GenerateNodeProps) {
-  const { generating = false, results = [], onRegenerate, onDelete, status = 'idle', lastPrompt = '' } = data;
+  const { generating = false, results = [], onRegenerate, onDelete, status = 'idle', lastPrompt = '', mode = 'generate', onModeChange } = data;
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editPrompt, setEditPrompt] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -40,6 +42,39 @@ function GenerateNode({ id, data }: GenerateNodeProps) {
 
         {/* Body */}
         <div className="p-0">
+          <div className="grid grid-cols-2 gap-1.5 p-2 pb-0">
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={() => onModeChange?.('edit')}
+              className={`nodrag flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition ${
+                mode === 'edit' ? 'text-emerald-300' : 'text-gray-500 hover:text-gray-300'
+              }`}
+              style={{
+                background: mode === 'edit' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${mode === 'edit' ? 'rgba(16,185,129,0.45)' : '#2a2a2a'}`,
+              }}
+              title="Chỉnh sửa ảnh đầu vào và giữ nguyên chữ/bố cục nếu không yêu cầu đổi"
+            >
+              <ImageIcon className="w-3 h-3" />
+              Sửa ảnh gốc
+            </button>
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={() => onModeChange?.('generate')}
+              className={`nodrag flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition ${
+                mode === 'generate' ? 'text-orange-300' : 'text-gray-500 hover:text-gray-300'
+              }`}
+              style={{
+                background: mode === 'generate' ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${mode === 'generate' ? 'rgba(249,115,22,0.45)' : '#2a2a2a'}`,
+              }}
+              title="Tạo ảnh mới theo prompt và ảnh tham khảo"
+            >
+              <Sparkles className="w-3 h-3" />
+              Tạo theo mẫu
+            </button>
+          </div>
+
           {/* Idle state */}
           {status === 'idle' && !isCompleted && !generating && (
             <div className="m-2 rounded-xl py-8 text-center" style={{ border: '1px dashed #2a2a2a' }}>

@@ -1217,6 +1217,7 @@ function WorkflowCanvas() {
         } else if (execNode.type === 'generate') {
           // Generate image
           const finalPrompt = nodePrompt || 'Professional marketing image';
+          const imageMode = ((execNode.data as any)?.mode === 'edit' ? 'edit' : 'generate') as 'edit' | 'generate';
 
           // Collect ref images: từ aiprompt node refs + image/input/references nodes
           let allRefImages = [...refImages];
@@ -1233,33 +1234,37 @@ function WorkflowCanvas() {
 
           const generateVariationIndex = generateNodes.findIndex((node) => node.id === execNode.id) + 1;
           const variationPreset = GENERATE_VARIATION_PRESETS[(generateVariationIndex - 1) % GENERATE_VARIATION_PRESETS.length];
+          const inferredImageSize = await inferImageSizeFromReferences(styleReferenceImages.length > 0 ? styleReferenceImages : allRefImages);
 
           // Build enhanced prompt với vai trò ảnh rõ ràng
           let enhancedPrompt = finalPrompt;
-          if (inputImages.length > 0) {
-            enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, product shape, packaging, label details, silhouette, materials, and key visual details as much as possible. If the style reference contains an old product/mockup/device/dental object/before-after image/product packshot, replace that old product slot with the matching input image while keeping the slot position, scale, perspective, lighting, and surrounding layout. If a person's clothing, pose, framing, or mood is revealing, suggestive, intimate, or not suitable for a healthcare advertisement, convert it to modest professional advertising styling with covered clothing and a neutral commercial pose. Do not replace the input subject with a person/product from the style reference.]`;
+          if (imageMode === 'edit') {
+            enhancedPrompt += `\n\n[Edit mode: Use the first provided image as the original image to edit. Apply only the requested change. Preserve existing visible text, logos, layout, composition, colors, typography, subject identity, product details, and all unmentioned areas. Do not translate, rewrite, remove, replace, or invent text unless the prompt explicitly asks to edit that exact text.]`;
+          } else {
+            if (inputImages.length > 0) {
+              enhancedPrompt += `\n\n[Input images: Use the provided input image(s) as the REQUIRED main subject(s). Preserve the person/product/object identity, face, product shape, packaging, label details, silhouette, materials, and key visual details as much as possible. If the style reference contains an old product/mockup/device/dental object/before-after image/product packshot, replace that old product slot with the matching input image while keeping the slot position, scale, perspective, lighting, and surrounding layout. If a person's clothing, pose, framing, or mood is revealing, suggestive, intimate, or not suitable for a healthcare advertisement, convert it to modest professional advertising styling with covered clothing and a neutral commercial pose. Do not replace the input subject with a person/product from the style reference.]`;
+            }
+            if (styleReferenceImages.length > 0) {
+              enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
+              enhancedPrompt += `\n\n[Product replacement: Detect any main product, packshot, dental tray, teeth image, device, mockup, before/after panel, or object slot in the style reference. When input images are provided, replace those old reference products/objects with the matching input product/object. Preserve layout slot geometry, crop, shadows, reflections, perspective, and nearby badges, but remove the old product.]`;
+              enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
+            }
+            if (currentBrand) {
+              enhancedPrompt += `\n\n[Mandatory brand palette]\n${buildBrandPaletteInstruction(currentBrand)}\nRecolor every non-photo design element from style/reference images to this brand palette: background, gradients, CTA blocks, badges, icons, borders, decorative shapes, headline/subheadline/body text colors, large display typography/product or service name colors, footer bars, and small accents. If the reference has gold/yellow display text such as a product name, convert that typography color to brand primary or secondary. Do not keep old reference colors unless they match the current brand palette. Neutral white/black/gray and natural person/product photo colors may remain only when needed.`;
+            }
+            if (currentBrand?.logo_url) {
+              enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
+            }
+            enhancedPrompt += `\n\n[Professional safety: Always output a polished, non-sexual, family-safe professional advertisement. Use modest clothing, clean healthcare/commercial lighting, and brand-safe dental marketing aesthetics. Do not preserve provocative wardrobe, seductive pose, body-emphasis, bedroom/mirror-selfie intimacy, erotic mood, or suggestive framing from any input image.]`;
+            enhancedPrompt += `\n\n[Ngôn ngữ bắt buộc: Mọi chữ hiển thị trong ảnh cuối phải là tiếng Việt có dấu, tự nhiên, đúng chính tả. Không dùng tiếng Anh trong headline, CTA, badge, footer, ưu đãi, địa chỉ, caption hoặc bất kỳ text overlay nào. Nếu prompt hoặc ảnh tham khảo có chữ tiếng Anh, hãy chuyển nghĩa sang tiếng Việt trước khi đưa vào ảnh.]`;
+            enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
           }
-          if (styleReferenceImages.length > 0) {
-            enhancedPrompt += `\n\n[Style reference images: Use these only to analyze poster layout, typography hierarchy, color mood, spacing, dental/marketing visual structure, and decorative style. Do not copy the person/product from the style reference when input images are provided.]`;
-            enhancedPrompt += `\n\n[Product replacement: Detect any main product, packshot, dental tray, teeth image, device, mockup, before/after panel, or object slot in the style reference. When input images are provided, replace those old reference products/objects with the matching input product/object. Preserve layout slot geometry, crop, shadows, reflections, perspective, and nearby badges, but remove the old product.]`;
-            enhancedPrompt += `\n\n[Text replacement: Read all text positions from the style reference, but replace every old text string with new content from the user's prompt and current brand. Do not keep old headlines, offers, prices, CTAs, address, phone, footer text, or brand text from the reference image.]`;
-          }
-          if (currentBrand) {
-            enhancedPrompt += `\n\n[Mandatory brand palette]\n${buildBrandPaletteInstruction(currentBrand)}\nRecolor every non-photo design element from style/reference images to this brand palette: background, gradients, CTA blocks, badges, icons, borders, decorative shapes, headline/subheadline/body text colors, large display typography/product or service name colors, footer bars, and small accents. If the reference has gold/yellow display text such as a product name, convert that typography color to brand primary or secondary. Do not keep old reference colors unless they match the current brand palette. Neutral white/black/gray and natural person/product photo colors may remain only when needed.`;
-          }
-          if (currentBrand?.logo_url) {
-            enhancedPrompt += `\n\n[Brand logo: The brand logo image is provided. Place it prominently in the design, replacing any existing logos.]`;
-          }
-          const inferredImageSize = await inferImageSizeFromReferences(styleReferenceImages.length > 0 ? styleReferenceImages : allRefImages);
           if (inferredImageSize) {
             enhancedPrompt += `\n\n${inferredImageSize.instruction}`;
           }
-          enhancedPrompt += `\n\n[Professional safety: Always output a polished, non-sexual, family-safe professional advertisement. Use modest clothing, clean healthcare/commercial lighting, and brand-safe dental marketing aesthetics. Do not preserve provocative wardrobe, seductive pose, body-emphasis, bedroom/mirror-selfie intimacy, erotic mood, or suggestive framing from any input image.]`;
-          enhancedPrompt += `\n\n[Ngôn ngữ bắt buộc: Mọi chữ hiển thị trong ảnh cuối phải là tiếng Việt có dấu, tự nhiên, đúng chính tả. Không dùng tiếng Anh trong headline, CTA, badge, footer, ưu đãi, địa chỉ, caption hoặc bất kỳ text overlay nào. Nếu prompt hoặc ảnh tham khảo có chữ tiếng Anh, hãy chuyển nghĩa sang tiếng Việt trước khi đưa vào ảnh.]`;
-          enhancedPrompt += `\n\n[Variation ${generateVariationIndex}: ${variationPreset} This output must be visibly different from other generator nodes. Do not reuse the exact same layout, crop, typography placement, subject position, or badge arrangement.]`;
 
           console.log(`[Flow] Generate with prompt (${enhancedPrompt.length} chars)`);
-          console.log(`[Flow] Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
+          console.log(`[Flow] Mode: ${imageMode}, Input images: ${inputImages.length}, Style references: ${styleReferenceImages.length}, Total refs: ${allRefImages.length}`);
           console.log(`[Flow] Inferred image size: ${inferredImageSize?.size || 'default'}`);
 
           const res = await generateImage({
@@ -1269,6 +1274,7 @@ function WorkflowCanvas() {
             reference_images: allRefImages.length > 0 ? allRefImages : undefined,
             input_images: inputImages.length > 0 ? inputImages : undefined,
             style_reference_images: styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+            mode: imageMode,
             ...(inferredImageSize ? { size: inferredImageSize.size } : {}),
             variation_index: generateVariationIndex,
           });
@@ -2079,6 +2085,11 @@ function WorkflowCanvas() {
             ...node.data,
             generating: Boolean((node.data as any)?.generating),
             results: (node.data as any)?.results || [],
+            mode: ((node.data as any)?.mode === 'edit' ? 'edit' : 'generate') as 'edit' | 'generate',
+            onModeChange: (mode: 'generate' | 'edit') => setNodes((nds) => nds.map((candidate) => candidate.id === node.id
+              ? { ...candidate, data: { ...candidate.data, mode } }
+              : candidate
+            )),
             onGenerate: (n: number) => handleRunFlowRef.current(n),
             onRegenerate: (_i: number, _p?: string) => handleRunFlowRef.current(1),
             canGenerate: !!selectedBrand && (prompt.trim().length > 0 || scannedPrompt.trim().length > 0),
