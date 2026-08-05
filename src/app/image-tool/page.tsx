@@ -44,7 +44,8 @@ function ImageToolContent() {
   const [selectedModels, setSelectedModels] = useState(['gpt-image-2']);
   const [quality, setQuality] = useState('1K');
   const [batchCount, setBatchCount] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState('Auto');
+  const [aspectRatio, setAspectRatio] = useState('Tự động');
+  const [generationMode, setGenerationMode] = useState<'edit' | 'generate'>('edit');
   const [publishToExplore, setPublishToExplore] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
@@ -235,8 +236,8 @@ function ImageToolContent() {
         '3:2': '1536x1024',
         '3:4': '1024x1536',
         '4:3': '1536x1024',
-        '9:16': '1024x1792',
-        '16:9': '1792x1024',
+        '9:16': '1024x1536',
+        '16:9': '1536x1024',
       };
       const imageSize = sizeMap[aspectRatio] || '1024x1024';
 
@@ -246,6 +247,7 @@ function ImageToolContent() {
         body: JSON.stringify({
           user_input: prompt,
           reference_images: refUrls.length > 0 ? refUrls : undefined,
+          mode: refUrls.length > 0 && generationMode === 'edit' ? 'edit' : 'generate',
           size: imageSize,
           quality: quality.toLowerCase(),
         }),
@@ -315,7 +317,7 @@ function ImageToolContent() {
           {/* Reference Images */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Hình tham khảo (tối đa 16)
+              Hình đầu vào / tham khảo (tối đa 16)
             </label>
             <div className="flex flex-wrap gap-2">
               {referenceImages.map((img, idx) => (
@@ -350,6 +352,37 @@ function ImageToolContent() {
             </div>
           </div>
 
+          {/* Mode */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Chế độ</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setGenerationMode('edit')}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-2 ${
+                  generationMode === 'edit'
+                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300'
+                    : 'bg-transparent border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+                style={{ border: '1px solid' }}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Sửa ảnh gốc
+              </button>
+              <button
+                onClick={() => setGenerationMode('generate')}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-2 ${
+                  generationMode === 'generate'
+                    ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                    : 'bg-transparent border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+                style={{ border: '1px solid' }}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Tạo theo mẫu
+              </button>
+            </div>
+          </div>
+
           {/* Prompt */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -362,7 +395,7 @@ function ImageToolContent() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Mô tả hình ảnh bạn muốn tạo..."
+                placeholder={generationMode === 'edit' ? 'Nhập phần muốn sửa, ví dụ: đổi màu nền thành trắng, giữ nguyên toàn bộ chữ...' : 'Mô tả hình ảnh bạn muốn tạo...'}
                 className="w-full h-28 px-3 py-2.5 rounded-lg text-sm resize-none outline-none transition"
                 style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
               />
@@ -682,7 +715,7 @@ function ImageToolContent() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Mô tả chi tiết hình ảnh bạn muốn tạo..."
+                placeholder={generationMode === 'edit' ? 'Nhập phần muốn sửa, các phần không nhắc tới sẽ được giữ nguyên...' : 'Mô tả chi tiết hình ảnh bạn muốn tạo...'}
                 className="w-full h-[60vh] px-4 py-3 rounded-lg text-sm outline-none resize-none"
                 style={{ background: '#1a1a1a', border: '1px solid #333', color: '#eee' }}
                 autoFocus

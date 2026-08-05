@@ -139,6 +139,8 @@ export async function generateImage(payload: {
   input_images?: string[];
   style_reference_images?: string[];
   size?: '1024x1024' | '1536x1024' | '1024x1536';
+  quality?: string;
+  mode?: 'generate' | 'edit';
   variation_index?: number;
 }): Promise<ImageGeneration> {
   const { data } = await api.post('/image-generations', payload);
